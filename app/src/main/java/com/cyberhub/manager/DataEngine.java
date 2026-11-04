@@ -13,7 +13,7 @@ public final class DataEngine {
  boolean permission(){return Build.VERSION.SDK_INT>=30?Environment.isExternalStorageManager():activity.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;}
  synchronized Object call(String action,JSONObject a)throws Exception{
   switch(action){
-   case "init":return new JSONObject().put("permission",permission()).put("home",Environment.getExternalStorageDirectory().getPath()).put("workspace",workspace.getPath()).put("version","0.1.16").put("ownApk",activity.getApplicationInfo().sourceDir);
+   case "init":return new JSONObject().put("permission",permission()).put("home",Environment.getExternalStorageDirectory().getPath()).put("workspace",workspace.getPath()).put("version","0.1.17").put("ownApk",activity.getApplicationInfo().sourceDir);
    case "list":return list(a);
    case "disk":{File f=new File(a.getString("path"));return new JSONObject().put("total",f.getTotalSpace()).put("free",f.getUsableSpace());}
    case "exportText":{File f=FileOps.child(new File(a.getString("path")),a.getString("name"));if(f.exists())throw new IOException("输出已存在");FileOps.writeAtomic(f,a.getString("text").getBytes(StandardCharsets.UTF_8),false);record("已导出 "+f);return f.getPath();}

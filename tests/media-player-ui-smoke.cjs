@@ -158,6 +158,13 @@ await wait(()=>w.document.querySelector('#toolbar .title.pathScroll .pathMarquee
 assert(w.document.querySelector('#toolbar .title .pathMarquee').textContent.includes('very/long/path'),'marquee keeps full path text');
 pass('0.1.16 fixes: swipe click suppression and path marquee');
 
+// 11) 0.1.17 修复：快速访问面板从底部弹出（quickLayer flex 贴底）
+assert(cssAll.includes('#quickLayer{position:fixed;inset:0;z-index:25;display:flex;align-items:flex-end;justify-content:center}'),'quick layer anchors panel to bottom');
+const layerEl=w.document.querySelector('#quickLayer');
+const cs=w.getComputedStyle?null:null; // happy-dom 布局不完整，以 CSS 源码断言为准
+assert(layerEl,'quick layer exists after openQuickPanel');
+pass('0.1.17 fix: quick panel opens from the bottom');
+
 if(errors.length){console.log('PAGE ERRORS:',errors.join(' | '));process.exit(1);}
 console.log('ALL '+count+' PASS');
 })().catch(e=>{console.error('FAIL',e.message);process.exit(1);});

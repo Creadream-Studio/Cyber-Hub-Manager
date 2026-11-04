@@ -926,7 +926,7 @@ body.light .sheetShade{background:#00000040}
 .playerSeek{flex:1;min-width:0;height:26px;accent-color:#7fb3ff}
 .photoFoot.playerHide{display:none}
 /* 0.1.14 快速访问面板（底栏上滑：最近 / 书签） */
-#quickLayer{position:fixed;inset:0;z-index:25}
+#quickLayer{position:fixed;inset:0;z-index:25;display:flex;align-items:flex-end;justify-content:center}
 #quickLayer:empty{display:none}
 #quickLayer:empty{pointer-events:none}
 #quickLayer .shade{z-index:0}
