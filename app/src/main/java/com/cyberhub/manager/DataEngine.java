@@ -77,6 +77,33 @@ public final class DataEngine {
    case "dexRepartition":{File src=apkSource(a),dst=outputApk(src,"_split");JSONObject r=DexTools.repartition(src,dst,a);record("DEX 重新划分："+r.optInt("dexes")+" 个 DEX");return publishApk(dst).put("stats",r);}
    case "dexDecrypt":{File f=new File(a.getString("path"));DexStringDecryptor.Report r=DexStringDecryptor.run(f,a.optString("custom",""),new DexStringDecryptor.Report());record("DEX 字符串解密：候选 "+r.candidates+"，调用点 "+r.callSites+"，解出 "+r.decrypted);JSONObject o=new JSONObject();o.put("candidates",r.candidates);o.put("callSites",r.callSites);o.put("decrypted",r.decrypted);o.put("skipped",r.skipped);JSONArray s=new JSONArray();for(String x:r.samples)s.put(x);o.put("samples",s);JSONArray er=new JSONArray();for(String x:r.errors)er.put(x);o.put("errors",er);return o;}
    case "dexDeobfuscate":{File f=new File(a.getString("path"));List<String> targetList=new ArrayList<>();if(a.has("targetClasses")){JSONArray cl=a.getJSONArray("targetClasses");for(int i=0;i<cl.length();i++)targetList.add(cl.getString(i));}DexDeobfuscator.Report r=DexDeobfuscator.run(f,a.optString("custom",""),targetList,new DexDeobfuscator.Report());File out=new File(f.getParentFile(),f.getName().replaceFirst("(\\.apk|\\.dex)$","_deobf$1"));if(r.dexCount>0&&out.isFile()){JSONObject p=publishApk(out);record("DEX 混淆对抗：类 "+r.classesRenamed+"，方法 "+r.methodsRenamed+"，字段 "+r.fieldsRenamed);return p.put("classesRenamed",r.classesRenamed).put("methodsRenamed",r.methodsRenamed).put("fieldsRenamed",r.fieldsRenamed).put("renamedClasses",new JSONArray(r.renamedClasses)).put("errors",new JSONArray(r.errors));}JSONObject o=new JSONObject();o.put("classesRenamed",r.classesRenamed);o.put("methodsRenamed",r.methodsRenamed);o.put("fieldsRenamed",r.fieldsRenamed);o.put("renamedClasses",new JSONArray(r.renamedClasses));o.put("errors",new JSONArray(r.errors));o.put("output",out.getName());return o;}
+   case "dexFiles":return dexFiles(resolve(a));
+   case "dexProperties":return dex.properties();
+   case "dexRepair":{JSONObject r=dex.repair();record("已修复 DEX："+r.getInt("count")+" 个");return r;}
+   case "dexToSmali":{File out=new File(a.getString("destination"));JSONObject r=dex.toSmali(out);record("已导出 Smali："+r.getString("path"));return r;}
+   case "dexToJar":{File out=new File(a.getString("destination"));JSONObject r=dex.toJar(out);record("已生成 JAR："+r.getString("path"));return r;}
+   case "dexDirectProperties":{File src=resolve(a);DexEngine t=dex.scratch(src,new JSONArray().put(dexEntryName(a,src)));try{JSONObject r=t.properties().put("path",dexLabel(a,src));return r;}finally{t.dispose();}}
+   case "dexDirectRepair":{File src=resolve(a);String name=dexEntryName(a,src);DexEngine t=dex.scratch(src,new JSONArray().put(name));try{JSONObject r=t.repair();byte[] data=FileOps.read(t.files.get(name),256L*1024*1024);JSONObject p=publishDex(a,name,data);record("已修复 DEX："+dexLabel(a,src));return r.put("path",p.getString("path")).put("backup",p.getString("backup")).put("signed",p.getBoolean("signed"));}finally{t.dispose();}}
+   case "dexDirectToSmali":{File src=resolve(a);File out=new File(a.getString("destination"));DexEngine t=dex.scratch(src,new JSONArray().put(dexEntryName(a,src)));try{JSONObject r=t.toSmali(out).put("source",dexLabel(a,src));record("已导出 Smali："+r.getString("path"));return r;}finally{t.dispose();}}
+   case "dexDirectToJar":{File src=resolve(a);File out=new File(a.getString("destination"));DexEngine t=dex.scratch(src,new JSONArray().put(dexEntryName(a,src)));try{JSONObject r=t.toJar(out).put("source",dexLabel(a,src));record("已生成 JAR："+r.getString("path"));return r;}finally{t.dispose();}}
+   case "dexDirectReplaceStrings":{File src=resolve(a);String name=dexEntryName(a,src);DexEngine t=dex.scratch(src,new JSONArray().put(name));try{JSONObject r=t.replaceStrings(a).put("path",dexLabel(a,src));if(r.optInt("replaced",0)==0)return r.put("changed",false);byte[] data=FileOps.read(t.files.get(name),256L*1024*1024);JSONObject p=publishDex(a,name,data);record("已替换 DEX 字符串 "+r.getInt("replaced")+" 处");return r.put("changed",true).put("backup",p.getString("backup")).put("signed",p.getBoolean("signed"));}finally{t.dispose();}}
+   case "dexMerge":{File out=new File(a.getString("destination"));JSONObject r=dex.mergeDex(a,out);record("已合并 DEX："+r.getInt("classes")+" 个类");return r;}
+   case "dexReplaceStrings":{JSONObject r=dex.replaceStrings(a);record("已替换 DEX 字符串 "+r.getInt("replaced")+" 处");return r;}
+   case "dexOpen":return dex.open(resolve(a),a.getJSONArray("entries"));
+   case "dexTree":return dex.tree(a.optString("prefix"));
+   case "dexCode":return dex.code(a.getString("class"),a.optString("mode","smali"),a.optString("decompiler","auto"));
+   case "dexSave":{Object out=dex.save(a.getString("class"),a.getString("text"));record("已保存 Smali "+a.getString("class"));return out;}
+   case "dexJavaSave":{File api=new File(activity.getCacheDir(),"compiler-api-34.jar");if(!api.isFile())try(InputStream in=activity.getAssets().open("compiler/android-api.jar")){FileOps.writeAtomic(api,FileOps.bytes(in,16L*1024*1024),false);}Object out=dex.saveJava(a.getString("class"),a.getString("text"),api);record("已编译 Java "+a.getString("class"));return out;}
+   case "dexExport":{File output=new File(a.getString("destination"));Object out=dex.export(output);record("已导出 DEX 更改");return out;}
+   case "dexQuery":return dex.query(a);
+   case "dexSaveSign":{try(InputStream key=activity.getAssets().open("development-signing.p12")){JSONObject r=dex.commit(key);record("已保存、签名并校验 "+r.getString("path"));return r;}}
+   case "dexCommit":{JSONObject r=dex.commit();record("已保存 DEX 工程到 "+r.getString("path"));return r;}
+   case "restoreBackup":{File f=FileOps.restoreBackup(new File(a.getString("path")));record("已还原备份 "+f);return f.getPath();}
+   case "dexStrings":return dex.strings(a.optString("query"));
+   case "dexSearch":return dex.search(a.optString("query"));
+   case "apps":return apps();
+   case "log":return new JSONArray(activity.getPreferences(0).getString("log","[]"));
+   case "plugins":return plugins(a);
    case "service":return services.action(a);
    case "ftp":return FtpTools.call(a);
    case "netStorage":return NetworkStorage.call(a);
