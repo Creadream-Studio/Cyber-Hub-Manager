@@ -979,3 +979,15 @@ body.light .quickRow .fileicon.arsc{background:#a57306!important;color:#fff!impo
 .pathScroll .pathMarquee{display:inline-block;animation:pathMarquee 7s ease-in-out 1s infinite alternate;padding-right:24px}
 @keyframes pathMarquee{from{transform:translateX(0)}to{transform:translateX(calc(-1*var(--path-shift,0px)))}}
 body.reduceMotion .pathMarquee{animation:none}
+
+/* 0.1.20 文件列表照片/视频缩略图预览：图标位显示媒体预览帧，视频带播放角标 */
+.fileicon.thumbFill{position:relative;overflow:hidden;background:#111!important;color:#ccc!important;padding:0}
+.fileicon.thumbFill svg{display:none}
+.fileicon.thumbFill img{display:block;position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;border-radius:inherit;margin:0}
+.fileicon.thumbFill .playBadge{position:absolute;right:1px;bottom:1px;z-index:1;width:11px;height:11px;display:flex;align-items:center;justify-content:center;background:#000a;border-radius:3px;color:#fff}
+.fileicon.thumbFill .playBadge svg{display:block;width:7px;height:7px;fill:#fff}
+body.light .fileicon.thumbFill{background:#e3e3e3!important}
+body.list-small .fileicon.thumbFill .playBadge{width:9px;height:9px}
+body.list-small .fileicon.thumbFill .playBadge svg{width:6px;height:6px}
+body.list-large .fileicon.thumbFill .playBadge{width:13px;height:13px}
+body.list-large .fileicon.thumbFill .playBadge svg{width:8px;height:8px}

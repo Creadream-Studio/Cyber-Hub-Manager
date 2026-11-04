@@ -158,10 +158,11 @@ public class MainActivity extends Activity {
     }
     public final class Bridge {
         @JavascriptInterface public void request(String id,String action,String args){
-            (action.equals("apkIcon")?thumbnails:worker).execute(()->{JSONObject response=new JSONObject();try{
+            (action.equals("apkIcon")||action.equals("listThumb")?thumbnails:worker).execute(()->{JSONObject response=new JSONObject();try{
                 JSONObject a=new JSONObject(args);Object result;
                 switch(action){
                     case "apkIcon":result=engine.iconForPath(a.getString("path"));break;
+                    case "listThumb":result=listThumb(a);break;
                     case "exit":runOnUiThread(()->finish());result=true;break;
                     case "permission":runOnUiThread(()->storagePermission());result=true;break;
                     case "safPermission":{String which=a.optString("which","data");runOnUiThread(()->SafAccess.request(MainActivity.this,which));result=true;break;}
@@ -241,6 +242,37 @@ public class MainActivity extends Activity {
         bitmap.recycle();
         String outMime=png?"image/png":"image/jpeg";
         return out.put("data",dataUrl(outMime,buffer.toByteArray())).put("width",width).put("height",height).put("mime",outMime);
+    }
+    private Object listThumb(JSONObject a)throws Exception{
+        String path=a.getString("path");
+        File f=new File(path);
+        if(!f.isFile())throw new IOException("文件未找到");
+        if(!f.canRead())throw new IOException("无法读取此文件");
+        if(!a.optString("kind","image").equals("video")){
+            JSONObject img=(JSONObject)mediaImage(new JSONObject().put("path",path).put("thumb",true).put("max",128));
+            return img.getString("data");
+        }
+        Bitmap frame=null;
+        android.media.MediaMetadataRetriever retriever=new android.media.MediaMetadataRetriever();
+        try{
+            retriever.setDataSource(path);
+            frame=retriever.getFrameAtTime(0,android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            if(frame==null)frame=retriever.getFrameAtTime();
+        }catch(Throwable ignored){
+        }finally{
+            try{retriever.release();}catch(Throwable ignored){}
+        }
+        if(frame==null)throw new IOException("无法生成视频缩略图");
+        float scale=Math.min(1f,128f/Math.max(frame.getWidth(),frame.getHeight()));
+        if(scale<1f){
+            Bitmap scaled=Bitmap.createScaledBitmap(frame,Math.max(1,Math.round(frame.getWidth()*scale)),Math.max(1,Math.round(frame.getHeight()*scale)),true);
+            if(scaled!=frame)frame.recycle();
+            frame=scaled;
+        }
+        ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+        frame.compress(Bitmap.CompressFormat.JPEG,80,buffer);
+        frame.recycle();
+        return dataUrl("image/jpeg",buffer.toByteArray());
     }
     private static Bitmap orient(Bitmap source,int orientation){
         Matrix matrix=new Matrix();

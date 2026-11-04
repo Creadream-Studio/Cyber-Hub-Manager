@@ -39,7 +39,7 @@ key=P/'app/src/main/assets/development-signing.p12'
 if not key.exists():
  run(['keytool','-J-Dkeystore.pkcs12.legacy','-genkeypair','-keystore',key,'-storetype','PKCS12','-storepass','cyberhub-development','-keypass','cyberhub-development','-alias','cyberhub-dev','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Cyber Hub Manager Development, O=Cyber Hub, C=IN'])
 resources=B/'resources.zip';run(native('aapt2','compile','--dir',P/'app/src/main/res','-o',resources))
-base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','20','--version-name','0.1.19',resources))
+base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','21','--version-name','0.1.20',resources))
 classjar=B/'app-classes.jar'
 with zipfile.ZipFile(classjar,'w',zipfile.ZIP_DEFLATED) as z:
  for f in classes.rglob('*.class'):z.write(f,f.relative_to(classes))
@@ -93,7 +93,7 @@ def verify_native_alignment(apk):
    if relro_end and relro_end%page:raise RuntimeError(f'{info.filename} RELRO ends at {relro_end:#x}, not 16 KB-aligned')
    print('16 KB OK',info.filename,'zip',hex(dataoff),'loads',loads)
 verify_native_alignment(aligned)
-output=P/'dist';output.mkdir(exist_ok=True);apk=output/'Cyber-Hub-Manager-0.1.19.apk'
+output=P/'dist';output.mkdir(exist_ok=True);apk=output/'Cyber-Hub-Manager-0.1.20.apk'
 signed=B/('signed-'+uuid.uuid4().hex+'.apk')
 run(java('-jar',BT/'lib/apksigner.jar','sign','--ks',key,'--ks-pass','pass:cyberhub-development','--key-pass','pass:cyberhub-development','--out',signed,aligned))
 run(java('-jar',BT/'lib/apksigner.jar','verify','--verbose',signed))
