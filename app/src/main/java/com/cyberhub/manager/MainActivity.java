@@ -59,13 +59,13 @@ public class MainActivity extends Activity {
         System.setProperty("java.io.tmpdir",getCacheDir().getPath());
         pendingOpenPath=getIntent()==null?null:getIntent().getStringExtra("open_path");
         try{engine=new DataEngine(this);web=new WebView(this);web.setBackgroundColor(0xff303030);
-        WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setAllowFileAccessFromFileURLs(false);s.setAllowUniversalAccessFromFileURLs(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setTextZoom(100);s.setSupportZoom(false);s.setBuiltInZoomControls(false);s.setDisplayZoomControls(false);
+        WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setAllowFileAccessFromFileURLs(false);s.setAllowUniversalAccessFromFileURLs(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setMediaPlaybackRequiresUserGesture(false);s.setTextZoom(100);s.setSupportZoom(false);s.setBuiltInZoomControls(false);s.setDisplayZoomControls(false);
         web.setWebChromeClient(new WebChromeClient(){@Override public boolean onConsoleMessage(ConsoleMessage m){
             if(m.messageLevel()==ConsoleMessage.MessageLevel.ERROR)android.util.Log.e("CyberHubUI",m.message()+" @ "+m.sourceId()+":"+m.lineNumber());return true;
         }});
         web.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest r){return !APP_URL.equals(r.getUrl().toString());}
-            @Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){return localAsset(r.getUrl(),r.getMethod());}
+            @Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){return localAsset(r.getUrl(),r.getMethod(),r.getRequestHeaders());}
             @Override public void onReceivedError(WebView v,WebResourceRequest r,WebResourceError e){if(r.isForMainFrame())showStartupError("无法加载界面："+e.getDescription());}
             @Override public void onPageFinished(WebView v,String url){
                 if(APP_URL.equals(url)){
@@ -110,9 +110,13 @@ public class MainActivity extends Activity {
             if(!shortcuts.requestPinShortcut(info,null))toast("桌面拒绝了快捷方式请求");
         }catch(Throwable e){toast("创建快捷方式失败："+e.getMessage());}
     }
-    private WebResourceResponse localAsset(Uri uri,String method){
+    private WebResourceResponse localAsset(Uri uri,String method,Map<String,String> requestHeaders){
         String path=uri.getPath();
-        if("GET".equals(method)&&"https".equals(uri.getScheme())&&"appassets.androidplatform.net".equals(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443)&&path!=null&&path.startsWith("/assets/")){
+        if("GET".equals(method)&&"https".equals(uri.getScheme())&&"appassets.androidplatform.net".equals(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443)&&path!=null){
+            // Same-origin media streaming: /media/<id> is resolved by MediaServer
+            // with full Range support. Never expose raw file paths here.
+            if(path.startsWith("/media/"))return mediaResponse(path.substring(7),requestHeaders==null?null:requestHeaders.get("Range"));
+            if(path.startsWith("/assets/")){
             String name=path.substring(8);
             if(Arrays.asList("app.html","app.js","boot.js","style.css","vendor/codemirror.js","vendor/codemirror.css","vendor/clike.js","vendor/xml.js","vendor/searchcursor.js").contains(name)){
                 try{
@@ -120,8 +124,24 @@ public class MainActivity extends Activity {
                     return new WebResourceResponse(mime,"UTF-8",200,"OK",Collections.singletonMap("Cache-Control","no-store"),getAssets().open(name));
                 }catch(IOException ignored){}
             }
+            }
         }
         // No network fallback, arbitrary local files, or signing-key exposure through WebView.
+        return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",Collections.emptyMap(),new ByteArrayInputStream("未找到".getBytes(StandardCharsets.UTF_8)));
+    }
+    private WebResourceResponse mediaResponse(String id,String range){
+        if(mediaServer==null)return notFoundResponse();
+        MediaServer.Response r;
+        try{r=mediaServer.serve(id,range);}catch(Throwable e){return notFoundResponse();}
+        if(r==null)return notFoundResponse();
+        Map<String,String> headers=new HashMap<>();
+        headers.put("Accept-Ranges","bytes");
+        headers.put("Cache-Control","no-store");
+        headers.put("Content-Length",String.valueOf(r.length));
+        if(r.contentRange!=null)headers.put("Content-Range",r.contentRange);
+        return new WebResourceResponse(r.mime==null?"application/octet-stream":r.mime,null,r.status,r.reason,headers,r.stream);
+    }
+    private WebResourceResponse notFoundResponse(){
         return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",Collections.emptyMap(),new ByteArrayInputStream("未找到".getBytes(StandardCharsets.UTF_8)));
     }
     private void showStartupError(String message){
@@ -155,7 +175,7 @@ public class MainActivity extends Activity {
                     case "terminalOpen":{String p=a.optString("path",getFilesDir().getPath());String command=a.optString("command","");runOnUiThread(()->openTerminal(p,command));result=true;break;}
                     case "terminalClose":runOnUiThread(()->closeTerminal());result=true;break;
                     case "mediaImage":result=mediaImage(a);break;
-                    case "mediaStream":{if(mediaServer==null)mediaServer=new MediaServer(MainActivity.this);result=mediaServer.register(a.getString("path"),mediaMime(a.getString("path")));break;}
+                    case "mediaStream":{if(mediaServer==null)mediaServer=new MediaServer(MainActivity.this);result=mediaServer.registerWeb(a.getString("path"),mediaMime(a.getString("path")));break;}
                     case "clipboardGet":{String text=null;try{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);if(cm!=null&&cm.hasPrimaryClip()&&cm.getPrimaryClip().getItemCount()>0){CharSequence t=cm.getPrimaryClip().getItemAt(0).coerceToText(MainActivity.this);if(t!=null)text=t.toString();}}catch(Throwable ignored){}result=text==null?"":text;break;}
                     case "mediaPlay":{String p=a.getString("path");File f=new File(p);if(!f.isFile())throw new IOException("媒体文件未找到");if(!f.canRead())throw new IOException("无法读取媒体文件");String kind=a.optString("kind","audio"),name=a.optString("name",f.getName());runOnUiThread(()->openMediaOverlay(p,kind,name));result=true;break;}
                     case "mediaClose":runOnUiThread(()->closeMedia());result=true;break;

@@ -73,7 +73,28 @@ public final class MediaServerSmokeTest {
             throw new AssertionError("missing file must throw");
         } catch (IOException expected) { check("missing throws", true); }
 
-        // 7) 关闭后端口释放
+        // 8) 同源 WebView 供流：registerWeb + serve(id, range)（0.1.15）
+        JSONObject webInfo = server.registerWeb(media.getPath(), "video/x-matroska");
+        String webUrl = webInfo.getString("url");
+        check("web url path", webUrl.startsWith("/media/") && webUrl.length() > "/media/".length());
+        check("web size", webInfo.getLong("size") == payload.length);
+        String webId = webUrl.substring("/media/".length());
+        MediaServer.Response full = server.serve(webId, null);
+        check("web serve 200", full != null && full.status == 200 && "video/x-matroska".equals(full.mime));
+        check("web full length", full.length == payload.length);
+        check("web full bytes", Arrays.equals(readAll(full.stream), payload));
+        MediaServer.Response webPart = server.serve(webId, "bytes=1000-1999");
+        check("web range 206", webPart.status == 206 && part.length == 1000);
+        check("web content-range", ("bytes 1000-1999/" + payload.length).equals(webPart.contentRange));
+        check("web range bytes", Arrays.equals(readAll(webPart.stream), Arrays.copyOfRange(payload, 1000, 2000)));
+        MediaServer.Response webTail = server.serve(webId, "bytes=-500");
+        check("web suffix 206", webTail.status == 206 && webTail.length == 500);
+        check("web suffix bytes", Arrays.equals(readAll(webTail.stream), Arrays.copyOfRange(payload, payload.length - 500, payload.length)));
+        check("web unknown id null", server.serve("deadbeef", null) == null);
+        MediaServer.Response bad = server.serve(webId, "bytes=999999999-");
+        check("web range 416", bad != null && bad.status == 416);
+
+        // 9) 关闭后端口释放
         server.close();
         check("closed", true);
 
@@ -85,6 +106,15 @@ public final class MediaServerSmokeTest {
             byte[] buffer = new byte[8192];
             int n;
             while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+            return out.toByteArray();
+        }
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        try (InputStream s = in; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = s.read(buffer)) > 0) out.write(buffer, 0, n);
             return out.toByteArray();
         }
     }

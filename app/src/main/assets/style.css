@@ -874,7 +874,7 @@ body.light .shade,body.light .drawerShade{background:#00000055}
 body.light .sheetShade{background:#00000040}
 
 /* Media preview and gallery */
-.mediaLayer{position:fixed;inset:0;z-index:60;display:none;flex-direction:column;background:#000;color:#fff}
+.mediaLayer{position:fixed;inset:0;z-index:60;display:none;flex-direction:column;background:#000;color:#fff;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .mediaLayer.open{display:flex}
 .photoTop{display:flex;align-items:center;gap:6px;min-height:56px;padding:max(8px,env(safe-area-inset-top)) 8px 8px;background:#0b0b0b}
 .photoHead{flex:1;min-width:0;padding:0 4px}
@@ -946,6 +946,12 @@ body.light .quickPanel{box-shadow:0 -18px 44px #0003}
 .quickMain small{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .quickGroup{margin:8px 6px 2px;font-size:11px;color:var(--muted);letter-spacing:.04em}
 #quickLayer .empty{padding:28px 12px;text-align:center;color:var(--muted);font-size:13px}
+
+/* Gesture capture: the bottom button row must own vertical swipes (up = quick
+   access panel); without touch-action:none the browser claims them as page
+   scroll and fires pointercancel before our swipe handler can react. */
+#bottom{touch-action:none}
+#bottom .playerSeek,#bottom input[type=range]{touch-action:auto}
 /* 0.1.14 长按菜单：竖排列表 + • 标记；路径栏可点按跳转 */
 .actionGrid{grid-template-columns:1fr}
 .actionGrid .actionName{flex:1;min-width:0;display:inline-flex;align-items:center;gap:6px;overflow-wrap:anywhere}

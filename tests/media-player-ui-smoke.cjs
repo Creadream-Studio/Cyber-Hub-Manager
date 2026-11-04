@@ -11,7 +11,7 @@ w.eval(`(()=>{
   switch(action){
    case'init':data={permission:true,home:root,workspace:root+'/CyberHub',version:'0.1.14',ownApk:root+'/self.apk'};break;
    case'list':data=files.map(x=>({...x,total:237888888888,free:170000000000}));break;
-   case'mediaStream':data={url:'http://127.0.0.1:45678/m/'+encodeURIComponent(a.path),mime:a.path.endsWith('.mkv')?'video/x-matroska':'audio/flac',size:1234};break;
+   case'mediaStream':data={url:'/media/stream-'+encodeURIComponent(a.path),mime:a.path.endsWith('.mkv')?'video/x-matroska':'audio/flac',size:1234};break;
    case'mediaImage':data={data:'data:image/jpeg;base64,/9j/4AAQSkZJRg==',width:10,height:10,mime:'image/jpeg'};break;
    case'clipboardGet':data='/storage/emulated/0/Download';break;
    case'mediaPlay':data=true;break;
@@ -21,8 +21,8 @@ w.eval(`(()=>{
   window.receive({id,ok:true,data});
  }catch(e){window.receive({id,ok:false,error:e.message});}},5);}};
 })();`);
-for(const file of ['boot.js','vendor/codemirror.js','vendor/clike.js','vendor/xml.js','vendor/searchcursor.js','app.js'])w.eval(file==='app.js'?fs.readFileSync(path.join(assets,file),'utf8').replace('\ninit();','\nwindow.__test={state,pref,fileActions,openFile,playMedia,mediaKind,jumpDialog,openQuickPanel,closeQuick,recordRecentFolder,renderQuickBody,closePlayer,closePhoto};\ninit();'):fs.readFileSync(path.join(assets,file),'utf8'));
-const sleep=()=>new Promise(r=>setTimeout(r,25));const evaluate=s=>w.eval(s.replace(/\b(state|pref|fileActions|openFile|playMedia|mediaKind|jumpDialog|openQuickPanel|closeQuick|recordRecentFolder|renderQuickBody|closePlayer|closePhoto)\b/g,'window.__test.$1'));
+for(const file of ['boot.js','vendor/codemirror.js','vendor/clike.js','vendor/xml.js','vendor/searchcursor.js','app.js'])w.eval(file==='app.js'?fs.readFileSync(path.join(assets,file),'utf8').replace('\ninit();','\nwindow.__test={state,pref,fileActions,openFile,playMedia,mediaKind,jumpDialog,openQuickPanel,closeQuick,recordRecentFolder,renderQuickBody,closePlayer,closePhoto,renderFiles,activatePane};\ninit();'):fs.readFileSync(path.join(assets,file),'utf8'));
+const sleep=()=>new Promise(r=>setTimeout(r,25));const evaluate=s=>w.eval(s.replace(/\b(state|pref|fileActions|openFile|playMedia|mediaKind|jumpDialog|openQuickPanel|closeQuick|recordRecentFolder|renderQuickBody|closePlayer|closePhoto|renderFiles|activatePane)\b/g,'window.__test.$1'));
 async function wait(fn){for(let i=0;i<160;i++){if(fn())return;await sleep();}throw Error('Timed out waiting for DOM');}
 let count=0;const pass=n=>{count++;console.log('PASS',n)};
 function menuItems(){return [...w.document.querySelectorAll('.fileActionMenu [role=menuitem]')];}
@@ -62,7 +62,7 @@ pass('photo preview opens directly without external button');
 // 4) 内置视频播放器：DOM 结构 + 流地址 + 手势提示
 evaluate("playMedia(state.panes[0].items.find(x=>x.name==='movie.mkv'),'video')");
 await wait(()=>w.document.querySelector('#mediaLayer.open .playerMedia'));
-await wait(()=>{const v=w.document.querySelector('.playerMedia');return v&&v.src&&v.src.includes('127.0.0.1');});
+await wait(()=>{const v=w.document.querySelector('.playerMedia');return v&&v.src&&v.src.includes('/media/');});
 assert(w.document.querySelector('#mediaLayer .playerStage'),'gesture stage present');
 assert(w.document.querySelector('#mediaLayer [data-player-dim]'),'brightness overlay present');
 assert(w.document.querySelector('#mediaLayer [data-player-boost]'),'boost badge present');
@@ -73,12 +73,12 @@ assert(w.document.querySelector('#mediaLayer [data-player-foot]').textContent.in
 assert(w.document.querySelector('#mediaLayer .photoSub').textContent.includes('视频'),'video player subtitle');
 evaluate("closePlayer()");
 await wait(()=>!w.document.querySelector('#mediaLayer .playerMedia'));
-pass('video player renders with gestures and loopback stream url');
+pass('video player renders with gestures and same-origin stream url');
 
 // 5) 内置音频播放器
 evaluate("playMedia(state.panes[0].items.find(x=>x.name==='song.flac'),'audio')");
 await wait(()=>w.document.querySelector('#mediaLayer.open .playerMedia'));
-await wait(()=>{const v=w.document.querySelector('.playerMedia');return v&&v.src&&v.src.includes('127.0.0.1');});
+await wait(()=>{const v=w.document.querySelector('.playerMedia');return v&&v.src&&v.src.includes('/media/');});
 assert(w.document.querySelector('#mediaLayer .playerArt'),'audio art present');
 assert(w.document.querySelector('#mediaLayer .photoSub').textContent.includes('音频'),'audio player subtitle');
 evaluate("closePlayer()");
@@ -124,6 +124,18 @@ await wait(()=>w.document.querySelector('#quickLayer .quickGroup'));
 assert.equal(w.document.querySelector('#quickLayer .quickGroup').textContent,'工作');
 assert([...w.document.querySelectorAll('#quickLayer .quickRow')].length===2);
 pass('bookmark groups render in panel');
+
+// 9) 0.1.15 修复：底栏上滑手势（touch-action）+ 窗格切换即时刷新顶部路径
+const css=fs.readFileSync(path.join(assets,'style.css'),'utf8');
+assert(css.includes('#bottom{touch-action:none}'),'bottom bar owns vertical swipes');
+assert(/\.mediaLayer\{[^}]*user-select:none/.test(css),'media layer blocks text selection');
+evaluate("state.panes[1].path='/storage/emulated/0/Download';state.panes[1].items=state.panes[1].items||[];renderFiles();");
+const titleBefore=w.document.querySelector('#toolbar .title').textContent;
+evaluate("activatePane(1)");
+assert.notEqual(w.document.querySelector('#toolbar .title').textContent,titleBefore,'pane switch refreshes header path immediately');
+evaluate("activatePane(0)");
+assert.equal(w.document.querySelector('#toolbar .title').textContent,titleBefore,'switch back restores left path');
+pass('0.1.15 fixes: bottom swipe touch-action and pane path refresh');
 
 if(errors.length){console.log('PAGE ERRORS:',errors.join(' | '));process.exit(1);}
 console.log('ALL '+count+' PASS');

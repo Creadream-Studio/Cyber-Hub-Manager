@@ -50,7 +50,7 @@ jobs:
       - name: 编译打包签名 APK（ECJ + D8 + zipalign + apksigner）
         run: python3 tools/build.py
 
-      - name: 核心 JVM 冒烟测试（139 项检查）
+      - name: 核心 JVM 冒烟测试
         run: python3 tests/run-core.py
 
       - name: 收集产物
