@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
     private FrameLayout mediaOverlay;
     private MediaPlayer mediaPlayer;
     private VideoView mediaVideo;
+    private MediaServer mediaServer;
     private SeekBar mediaSeek;
     private TextView mediaTime,mediaPlayButton;
     private final Handler mediaHandler=new Handler(Looper.getMainLooper());
@@ -154,6 +155,8 @@ public class MainActivity extends Activity {
                     case "terminalOpen":{String p=a.optString("path",getFilesDir().getPath());String command=a.optString("command","");runOnUiThread(()->openTerminal(p,command));result=true;break;}
                     case "terminalClose":runOnUiThread(()->closeTerminal());result=true;break;
                     case "mediaImage":result=mediaImage(a);break;
+                    case "mediaStream":{if(mediaServer==null)mediaServer=new MediaServer(MainActivity.this);result=mediaServer.register(a.getString("path"),mediaMime(a.getString("path")));break;}
+                    case "clipboardGet":{String text=null;try{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);if(cm!=null&&cm.hasPrimaryClip()&&cm.getPrimaryClip().getItemCount()>0){CharSequence t=cm.getPrimaryClip().getItemAt(0).coerceToText(MainActivity.this);if(t!=null)text=t.toString();}}catch(Throwable ignored){}result=text==null?"":text;break;}
                     case "mediaPlay":{String p=a.getString("path");File f=new File(p);if(!f.isFile())throw new IOException("媒体文件未找到");if(!f.canRead())throw new IOException("无法读取媒体文件");String kind=a.optString("kind","audio"),name=a.optString("name",f.getName());runOnUiThread(()->openMediaOverlay(p,kind,name));result=true;break;}
                     case "mediaClose":runOnUiThread(()->closeMedia());result=true;break;
                     case "mediaExternal":{File f=new File(a.getString("path"));if(!f.isFile())throw new IOException("文件未找到");File shared=shareCopy(f);String mime=mediaMime(f.getPath());runOnUiThread(()->openExternalMedia(shared,mime));result=true;break;}
@@ -243,38 +246,56 @@ public class MainActivity extends Activity {
         int dot=name.lastIndexOf('.');
         String ext=dot>=0?name.substring(dot+1):"";
         switch(ext){
-            case "jpg":case "jpeg":case "jpe":return "image/jpeg";
+            case "jpg":case "jpeg":case "jpe":case "jfif":return "image/jpeg";
             case "png":return "image/png";
             case "gif":return "image/gif";
             case "webp":return "image/webp";
-            case "bmp":return "image/bmp";
+            case "bmp":case "dib":return "image/bmp";
             case "heic":case "heif":return "image/heic";
             case "avif":return "image/avif";
             case "svg":return "image/svg+xml";
-            case "mp4":case "m4v":return "video/mp4";
-            case "mkv":return "video/x-matroska";
+            case "ico":return "image/x-icon";
+            case "cur":return "image/x-icon";
+            case "tif":case "tiff":return "image/tiff";
+            case "dng":return "image/x-adobe-dng";
+            case "mp4":case "m4v":case "f4v":return "video/mp4";
+            case "mkv":case "mk3d":return "video/x-matroska";
             case "webm":return "video/webm";
-            case "mov":return "video/quicktime";
-            case "avi":return "video/x-msvideo";
+            case "mov":case "qt":return "video/quicktime";
+            case "avi":case "divx":return "video/x-msvideo";
             case "3gp":return "video/3gpp";
-            case "ts":return "video/mp2t";
+            case "3g2":return "video/3gpp2";
+            case "ts":case "m2ts":case "mts":case "m2t":case "mtv":case "tp":case "trp":case "vro":return "video/mp2t";
             case "flv":return "video/x-flv";
             case "wmv":return "video/x-ms-wmv";
-            case "mpg":case "mpeg":return "video/mpeg";
-            case "ogv":return "video/ogg";
-            case "mp3":return "audio/mpeg";
-            case "wav":return "audio/wav";
+            case "asf":return "video/x-ms-asf";
+            case "mpg":case "mpeg":case "mpe":case "m1v":case "m2v":case "vob":return "video/mpeg";
+            case "ogv":case "ogm":return "video/ogg";
+            case "rm":return "application/vnd.rn-realmedia";
+            case "rmvb":return "application/vnd.rn-realmedia-vbr";
+            case "mxf":return "application/mxf";
+            case "mp3":case "mp2":case "mpga":return "audio/mpeg";
+            case "wav":case "wave":return "audio/wav";
             case "flac":return "audio/flac";
-            case "aac":case "m4a":return "audio/mp4";
-            case "ogg":case "oga":case "opus":return "audio/ogg";
+            case "aac":case "m4a":case "m4b":return "audio/mp4";
+            case "ogg":case "oga":case "opus":case "spx":return "audio/ogg";
             case "wma":return "audio/x-ms-wma";
-            case "amr":return "audio/amr";
-            case "mid":case "midi":return "audio/midi";
-            case "ape":return "audio/x-ape";
-            case "aiff":case "aif":return "audio/aiff";
-            case "mka":return "audio/x-matroska";
+            case "amr":case "nb":return "audio/amr";
+            case "awb":return "audio/amr-wb";
+            case "mid":case "midi":case "rmi":return "audio/midi";
+            case "ape":case "apl":return "audio/x-ape";
+            case "aiff":case "aif":case "aifc":return "audio/aiff";
+            case "mka":case "mkv~audio":return "audio/x-matroska";
+            case "au":case "snd":return "audio/basic";
+            case "caf":return "audio/x-caf";
+            case "weba":return "audio/webm";
+            case "ac3":return "audio/ac3";
+            case "dts":return "audio/vnd.dts";
+            case "tta":return "audio/x-tta";
+            case "wv":return "audio/x-wavpack";
         }
-        return "application/octet-stream";
+        String mapped=MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+        return mapped==null?"application/octet-stream":mapped;
     }
     private void openExternalMedia(File file,String mime){
         try{
@@ -865,5 +886,5 @@ public class MainActivity extends Activity {
     }
     @Override protected void onResume(){super.onResume();if(web!=null)web.evaluateJavascript("window.onNativeResume&&window.onNativeResume()",null);}
     @Override public void onBackPressed(){if(mediaOverlay!=null){closeMedia();return;}if(terminalOverlay!=null){closeTerminal();return;}if(web!=null)web.evaluateJavascript("window.goBack&&window.goBack()",null);}
-    @Override protected void onDestroy(){closeMedia();closeTerminal();if(engine!=null)engine.close();worker.shutdownNow();thumbnails.shutdownNow();if(web!=null){web.removeJavascriptInterface("CyberNative");web.destroy();web=null;}super.onDestroy();}
+    @Override protected void onDestroy(){closeMedia();closeTerminal();if(mediaServer!=null){mediaServer.close();mediaServer=null;}if(engine!=null)engine.close();worker.shutdownNow();thumbnails.shutdownNow();if(web!=null){web.removeJavascriptInterface("CyberNative");web.destroy();web=null;}super.onDestroy();}
 }

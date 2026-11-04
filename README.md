@@ -1,8 +1,15 @@
-# Cyber Hub Manager — 0.1.13 development build
+# Cyber Hub Manager — 0.1.14 development build
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 
-Install `Cyber-Hub-Manager-0.1.13.apk` as an **Update** over the existing app. Package `com.cyberhub.manager`, development signer and local asset origin are unchanged; versionCode is 14. Do not uninstall if you want to keep the private Workspace.
+Install `Cyber-Hub-Manager-0.1.14.apk` as an **Update** over the existing app. Package `com.cyberhub.manager`, development signer and local asset origin are unchanged; versionCode is 15. Do not uninstall if you want to keep the private Workspace.
+
+## 0.1.14 — Built-in media player, screenshot-driven UX (媒体播放 / 长按菜单 / 快速访问 / 跳转)
+
+- **内置媒体播放器**: tapping a photo/video/audio file opens it in-app. The video player supports **long-press 2×/3× speed boost**, **right-half vertical swipe = volume**, **left-half vertical swipe = brightness** (both remembered), a seek bar and auto-hiding controls. Audio plays in the same layer. Streams are served by a loopback-only HTTP server (`MediaServer`, 127.0.0.1, HTTP Range support); unsupported exotic formats fall back to the system player, then to 打开方式. Format coverage was greatly expanded (ico/tiff/dng/RAW, mkv/ts/m2ts/flv/rmvb/asf/vob…, flac/opus/ape/ac3/dts/amr/mka…).
+- **长按菜单**: now matches reference screenshot 2 — a vertical list of 复制, 移动, 删除, 重命名, 工具, 压缩, 属性, 分享, 打开方式, 添加书签 with the hint “带 • 的菜单表示可以长按触发单窗口操作”. The preview/play/“用其他应用打开” rows were removed (tap opens the viewer directly); archives keep 解压到….
+- **快速访问**: swipe up on the five bottom shortcut keys opens the 最近 / 书签 panel with 过滤, 添加分组, 调整高度 (30–90% live preview), 手势说明, 开启记录, 清空记录. Bookmarks support groups.
+- **跳转**: tapping the path bar opens the 跳转 dialog with an input plus 粘贴 / 取消 / 确定 buttons.
 
 ## Open with (长按 → 打开方式)
 
@@ -135,7 +142,7 @@ All runtime JARs, four Zstandard Android ABIs and local UI assets are included. 
 python tools/build.py --sdk /absolute/path/to/android-sdk
 ```
 
-Its default build-tools selection is 35.0.0 (required for `zipalign -P 16`); pass `--tools` for another installed build-tools directory. It stores native libraries uncompressed, aligns them to 16 KB, then verifies every packaged ELF LOAD segment and ZIP data offset before publishing. Output: `dist/Cyber-Hub-Manager-0.1.13.apk`. It compiles with desktop ECJ, converts with D8, aligns, signs, verifies signatures and checks packaged assets before publishing.
+Its default build-tools selection is 35.0.0 (required for `zipalign -P 16`); pass `--tools` for another installed build-tools directory. It stores native libraries uncompressed, aligns them to 16 KB, then verifies every packaged ELF LOAD segment and ZIP data offset before publishing. Output: `dist/Cyber-Hub-Manager-0.1.14.apk`. It compiles with desktop ECJ, converts with D8, aligns, signs, verifies signatures and checks packaged assets before publishing.
 
 `python tools/dependencies.py` recreates pinned runtime JARs. `python tools/compiler-api.py /path/to/platforms/android-34/android.jar` recreates the compile-only classpath asset. Dependency/source/license information is in `THIRD-PARTY-NOTICES.txt`, `DEPENDENCIES.json` and `licenses/`.
 

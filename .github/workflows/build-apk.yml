@@ -40,16 +40,17 @@ jobs:
           [ -f package.json ] || npm init -y >/dev/null
           npm install happy-dom@15.11.7 --no-audit --no-fund
 
-      - name: 前端语法检查 + 打开方式 UI 冒烟测试
+      - name: 前端语法检查 + 打开方式 / 媒体播放器 UI 冒烟测试
         run: |
           node --check app/src/main/assets/app.js
           node --check app/src/main/assets/boot.js
           node tests/open-with-ui-smoke.cjs
+          node tests/media-player-ui-smoke.cjs
 
       - name: 编译打包签名 APK（ECJ + D8 + zipalign + apksigner）
         run: python3 tools/build.py
 
-      - name: 核心 JVM 冒烟测试（121 项检查）
+      - name: 核心 JVM 冒烟测试（139 项检查）
         run: python3 tests/run-core.py
 
       - name: 收集产物

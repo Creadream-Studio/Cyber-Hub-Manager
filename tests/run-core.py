@@ -22,8 +22,8 @@ subprocess.run(['java','-jar',str(ecj),'-11','-proc:none','-nowarn','-cp',compil
 target=B/('core-test-'+uuid.uuid4().hex[:8]);reference=sys.argv[1] if len(sys.argv)>1 else str(P/'tests/fixtures/resources.zip')
 run=['java','-Djava.io.tmpdir='+str(B/'tmp'),'-cp',str(B/'testclasses')+os.pathsep+cp]
 subprocess.run(run+['com.cyberhub.manager.CoreSmokeTest',str(target),reference],env=env,check=True)
-subprocess.run(run+['com.cyberhub.manager.ApkSmokeTest',str(P/'dist/Cyber-Hub-Manager-0.1.13.apk'),str(target/'roundtrip.apk'),str(P/'app/src/main/assets/development-signing.p12')],env=env,check=True)
-subprocess.run(run+['com.cyberhub.manager.ApkToolsSmokeTest',str(P/'dist/Cyber-Hub-Manager-0.1.13.apk'),str(target/'apktools'),str(P/'app/src/main/assets/development-signing.p12')],env=env,check=True)
+subprocess.run(run+['com.cyberhub.manager.ApkSmokeTest',str(P/'dist/Cyber-Hub-Manager-0.1.14.apk'),str(target/'roundtrip.apk'),str(P/'app/src/main/assets/development-signing.p12')],env=env,check=True)
+subprocess.run(run+['com.cyberhub.manager.ApkToolsSmokeTest',str(P/'dist/Cyber-Hub-Manager-0.1.14.apk'),str(target/'apktools'),str(P/'app/src/main/assets/development-signing.p12')],env=env,check=True)
 
 subprocess.run(run+['com.cyberhub.manager.DexTreeSmokeTest',str(target)],env=env,check=True)
 
@@ -33,3 +33,5 @@ subprocess.run(run+['com.cyberhub.manager.JavaFlowSmokeTest',str(target),str(P/'
 
 subprocess.run([sys.executable,str(P/"tests/make-apks-fixtures.py")],env=env,check=True)
 subprocess.run(run+["com.cyberhub.manager.ApksSmokeTest",str(target),str(P/"tests/fixtures/apks"),str(P/"app/src/main/assets/development-signing.p12")],env=env,check=True)
+
+subprocess.run(run+["com.cyberhub.manager.MediaServerSmokeTest",str(target)],env=env,check=True)
