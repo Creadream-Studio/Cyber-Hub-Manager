@@ -21,8 +21,8 @@ w.eval(`(()=>{
   window.receive({id,ok:true,data});
  }catch(e){window.receive({id,ok:false,error:e.message});}},5);}};
 })();`);
-for(const file of ['boot.js','vendor/codemirror.js','vendor/clike.js','vendor/xml.js','vendor/searchcursor.js','app.js'])w.eval(file==='app.js'?fs.readFileSync(path.join(assets,file),'utf8').replace('\ninit();','\nwindow.__test={state,pref,fileActions,openFile,playMedia,mediaKind,jumpDialog,openQuickPanel,closeQuick,recordRecentFolder,renderQuickBody,closePlayer,closePhoto,renderFiles,activatePane};\ninit();'):fs.readFileSync(path.join(assets,file),'utf8'));
-const sleep=()=>new Promise(r=>setTimeout(r,25));const evaluate=s=>w.eval(s.replace(/\b(state|pref|fileActions|openFile|playMedia|mediaKind|jumpDialog|openQuickPanel|closeQuick|recordRecentFolder|renderQuickBody|closePlayer|closePhoto|renderFiles|activatePane)\b/g,'window.__test.$1'));
+for(const file of ['boot.js','vendor/codemirror.js','vendor/clike.js','vendor/xml.js','vendor/searchcursor.js','app.js'])w.eval(file==='app.js'?fs.readFileSync(path.join(assets,file),'utf8').replace('\ninit();','\nwindow.__test={state,pref,fileActions,openFile,playMedia,mediaKind,jumpDialog,openQuickPanel,closeQuick,recordRecentFolder,renderQuickBody,closePlayer,closePhoto,renderFiles,activatePane,fitPath};\ninit();'):fs.readFileSync(path.join(assets,file),'utf8'));
+const sleep=()=>new Promise(r=>setTimeout(r,25));const evaluate=s=>w.eval(s.replace(/\b(state|pref|fileActions|openFile|playMedia|mediaKind|jumpDialog|openQuickPanel|closeQuick|recordRecentFolder|renderQuickBody|closePlayer|closePhoto|renderFiles|activatePane|fitPath)\b/g,'window.__test.$1'));
 async function wait(fn){for(let i=0;i<160;i++){if(fn())return;await sleep();}throw Error('Timed out waiting for DOM');}
 let count=0;const pass=n=>{count++;console.log('PASS',n)};
 function menuItems(){return [...w.document.querySelectorAll('.fileActionMenu [role=menuitem]')];}
@@ -136,6 +136,27 @@ assert.notEqual(w.document.querySelector('#toolbar .title').textContent,titleBef
 evaluate("activatePane(0)");
 assert.equal(w.document.querySelector('#toolbar .title').textContent,titleBefore,'switch back restores left path');
 pass('0.1.15 fixes: bottom swipe touch-action and pane path refresh');
+
+// 10) 0.1.16 修复：底栏上滑吞掉按钮点击（不误触「上级目录」）+ 路径跑马灯
+evaluate("renderFiles()");
+const bar=w.document.querySelector('#bottom');
+bar.dispatchEvent(new w.MouseEvent('pointerdown',{bubbles:true,clientY:700,clientX:50}));
+bar.dispatchEvent(new w.MouseEvent('pointermove',{bubbles:true,clientY:640,clientX:50}));
+bar.dispatchEvent(new w.MouseEvent('pointermove',{bubbles:true,clientY:600,clientX:50}));
+const ev=new w.MouseEvent('click',{bubbles:true,cancelable:true});
+bar.dispatchEvent(ev);
+assert(ev.defaultPrevented,'swipe flag suppresses trailing button click');
+const ev2=new w.MouseEvent('click',{bubbles:true,cancelable:true});
+bar.dispatchEvent(ev2);
+assert(!ev2.defaultPrevented,'flag resets after one click / new press');
+const cssAll=fs.readFileSync(path.join(assets,'style.css'),'utf8');
+assert(cssAll.includes('@keyframes pathMarquee'),'path marquee keyframes present');
+assert(cssAll.includes('.pathScroll .pathMarquee'),'marquee applies via pathScroll class');
+// 长路径触发跑马灯（happy-dom 无真实布局，stub 尺寸后直接驱动 fitPath）
+evaluate("const tt=document.querySelector('#toolbar .title');Object.defineProperty(tt,'clientWidth',{value:100,configurable:true});Object.defineProperty(tt,'scrollWidth',{value:900,configurable:true});fitPath(tt,'/storage/emulated/0/very/long/path/segment')");
+await wait(()=>w.document.querySelector('#toolbar .title.pathScroll .pathMarquee'));
+assert(w.document.querySelector('#toolbar .title .pathMarquee').textContent.includes('very/long/path'),'marquee keeps full path text');
+pass('0.1.16 fixes: swipe click suppression and path marquee');
 
 if(errors.length){console.log('PAGE ERRORS:',errors.join(' | '));process.exit(1);}
 console.log('ALL '+count+' PASS');

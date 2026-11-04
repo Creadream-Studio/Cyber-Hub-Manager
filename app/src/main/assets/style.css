@@ -958,3 +958,8 @@ body.light .quickPanel{box-shadow:0 -18px 44px #0003}
 .actionGrid .menuDot{color:#7fb3ff;font-weight:700;font-size:15px;line-height:1;flex:none}
 .pathJump{cursor:pointer;border-radius:8px}
 .pathJump:active{background:var(--surface)}
+
+/* MP-Manager 式顶部路径跑马灯：路径过长时完整来回滚动，而非截断成 …xxx */
+.pathScroll .pathMarquee{display:inline-block;animation:pathMarquee 7s ease-in-out 1s infinite alternate;padding-right:24px}
+@keyframes pathMarquee{from{transform:translateX(0)}to{transform:translateX(calc(-1*var(--path-shift,0px)))}}
+body.reduceMotion .pathMarquee{animation:none}
