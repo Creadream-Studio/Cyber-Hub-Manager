@@ -1,0 +1,78 @@
+name: 构建并发布 签名 APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Android SDK 组件（platform 34 + build-tools 35.0.0）
+        run: |
+          sdkmanager() { "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "$@"; }
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-34" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+
+      - name: 安装 Node.js（UI 冒烟测试）
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 Happy DOM 测试环境
+        run: |
+          mkdir -p ../toolchain/test-node
+          cd ../toolchain/test-node
+          [ -f package.json ] || npm init -y >/dev/null
+          npm install happy-dom@15.11.7 --no-audit --no-fund
+
+      - name: 前端语法检查 + 打开方式 UI 冒烟测试
+        run: |
+          node --check app/src/main/assets/app.js
+          node --check app/src/main/assets/boot.js
+          node tests/open-with-ui-smoke.cjs
+
+      - name: 编译打包签名 APK（ECJ + D8 + zipalign + apksigner）
+        run: python3 tools/build.py
+
+      - name: 核心 JVM 冒烟测试（121 项检查）
+        run: python3 tests/run-core.py
+
+      - name: 收集产物
+        run: |
+          mkdir -p dist
+          ls -l dist/*.apk
+          cp dist/Cyber-Hub-Manager-*.apk ./Cyber-Hub-Manager.apk || true
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cyber-Hub-Manager-APK
+          path: dist/Cyber-Hub-Manager-*.apk
+
+      - name: 创建 GitHub Release
+        if: github.event_name == 'push'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: 签名构建 #${{ github.run_number }}
+          body: |
+            Cyber Hub Manager 签名构建（版本号见 APK）。
+            由 GitHub Actions 自动构建：JDK 17 + Android SDK 34 + build-tools 35.0.0，
+            ECJ 编译 → D8 转换 → zipalign 16 KB 对齐 → apksigner 签名并校验。
+            若 Release 创建失败，请在仓库 Actions 页面手动下载本次运行的 APK 产物。
+          files: |
+            dist/Cyber-Hub-Manager-*.apk
+          draft: false

@@ -194,6 +194,36 @@ to{transform:translateX(0)}
 .optionsDialog{padding-bottom:10px}
 .optionsDialog h2{margin-bottom:0}
 
+/* 打开方式对话框：标签页 + 彩色图标网格（参考截图布局） */
+.owDialog{padding:16px 12px 8px}
+.owDialog h2{display:flex;align-items:center;gap:8px;font-size:19px;margin:0 0 6px}
+.owDialog h2 .owTitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.owHeadBtns{display:flex;flex:none}
+.owHeadBtns .iconbtn{width:40px;height:40px}
+.owHeadBtns .iconbtn svg{width:22px;height:22px}
+.owSearch{padding:2px 4px 0}
+.owTabs{height:42px;background:transparent}
+.owTabs .tab{line-height:40px;font-size:13px;text-transform:none}
+.owGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;max-height:54vh;overflow-y:auto;padding:8px 0 4px;scrollbar-width:thin;scrollbar-color:#686868 transparent}
+.owItem{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px 8px;min-height:92px;border-radius:4px}
+.owItem:active{background:var(--hover)}
+.owTile{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;flex:none;overflow:hidden}
+.owTile svg{width:26px;height:26px}
+.owGlyph{font:700 13px/1 monospace;color:#fff;letter-spacing:-.5px}
+.owAppTile{background:var(--icon)}
+.owAppTile img{width:46px;height:46px;border-radius:10px;object-fit:cover;display:block}
+.owLabel{font-size:12px;line-height:15px;color:var(--text);text-align:center;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.owItem:disabled .owTile{opacity:.3}
+.owItem:disabled .owLabel{color:var(--muted)}
+.owEmpty{text-align:center;color:var(--muted);padding:16px 0;margin:0}
+.owHint{margin:6px 0 0}
+@media(max-width:330px){.owGrid{grid-template-columns:repeat(3,1fr)}.owTile,.owAppTile img{width:40px;height:40px}.owItem{min-height:84px}}
+/* 十六进制查看器 */
+.hexBar{display:flex;align-items:center;gap:4px;padding:6px 2px;flex-wrap:wrap}
+.hexNav{color:var(--blue);font-size:13px;padding:6px 8px;min-height:32px}
+.hexPos{font-size:12px;flex:1;text-align:center;min-width:80px}
+.hexBody{font:12px/1.55 monospace;background:var(--code);color:#b4bec8;padding:10px 12px;margin:8px 0 0;overflow-x:auto;white-space:pre;border-radius:2px}
+
 /* Video reference: navigation, editing, selection and archive dialogs. */
 .file.selected{background:#285361}
 .file.selected .filename{color:#d7e9ed}

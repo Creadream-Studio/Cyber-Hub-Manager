@@ -5,8 +5,10 @@ import android.os.*;
 import android.Manifest;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.provider.Settings;
@@ -124,7 +126,7 @@ public class MainActivity extends Activity {
     private void showStartupError(String message){
         android.widget.LinearLayout box=new android.widget.LinearLayout(this);box.setOrientation(android.widget.LinearLayout.VERTICAL);box.setPadding(32,40,32,24);box.setBackgroundColor(0xff303030);
         android.content.pm.PackageInfo provider=WebView.getCurrentWebViewPackage();
-        String details="赛博中枢管家 0.1.12\n\n"+message+"\n\nAndroid "+Build.VERSION.RELEASE+"\nWebView: "+(provider==null?"不可用":provider.packageName+" "+provider.versionName);
+        String details="赛博中枢管家 0.1.13\n\n"+message+"\n\nAndroid "+Build.VERSION.RELEASE+"\nWebView: "+(provider==null?"不可用":provider.packageName+" "+provider.versionName);
         android.widget.TextView text=new android.widget.TextView(this);text.setText(details);text.setTextColor(0xffdddddd);text.setTextSize(16);text.setTextIsSelectable(true);box.addView(text);
         android.widget.Button retry=new android.widget.Button(this);retry.setText("重试");retry.setOnClickListener(v->recreate());box.addView(retry);
         android.widget.Button copy=new android.widget.Button(this);copy.setText("复制错误详情");copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("启动错误",details));toast("错误详情已复制");});box.addView(copy);
@@ -149,13 +151,15 @@ public class MainActivity extends Activity {
                     case "openUrl":{String url=a.getString("url");if(!url.startsWith("https://")&&!url.startsWith("http://"))throw new IOException("不支持的链接");runOnUiThread(()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(Exception e){Toast.makeText(MainActivity.this,"无法打开链接",Toast.LENGTH_SHORT).show();}});result=true;break;}
                     case "colorPicker":result=colorPicker(a);break;
                     case "elevated":result=ElevatedAccess.call(MainActivity.this,a);break;
-                    case "terminalOpen":{String p=a.optString("path",getFilesDir().getPath());runOnUiThread(()->openTerminal(p));result=true;break;}
+                    case "terminalOpen":{String p=a.optString("path",getFilesDir().getPath());String command=a.optString("command","");runOnUiThread(()->openTerminal(p,command));result=true;break;}
                     case "terminalClose":runOnUiThread(()->closeTerminal());result=true;break;
                     case "mediaImage":result=mediaImage(a);break;
                     case "mediaPlay":{String p=a.getString("path");File f=new File(p);if(!f.isFile())throw new IOException("媒体文件未找到");if(!f.canRead())throw new IOException("无法读取媒体文件");String kind=a.optString("kind","audio"),name=a.optString("name",f.getName());runOnUiThread(()->openMediaOverlay(p,kind,name));result=true;break;}
                     case "mediaClose":runOnUiThread(()->closeMedia());result=true;break;
                     case "mediaExternal":{File f=new File(a.getString("path"));if(!f.isFile())throw new IOException("文件未找到");File shared=shareCopy(f);String mime=mediaMime(f.getPath());runOnUiThread(()->openExternalMedia(shared,mime));result=true;break;}
                     case "createShortcut":{File target=new File(a.getString("path"));if(!target.exists())throw new IOException("目标不存在");runOnUiThread(()->pinShortcut(target));result=true;break;}
+                    case "openWithApps":result=openWithApps(a);break;
+                    case "openWithLaunch":{File f=new File(a.getString("path"));if(!f.isFile())throw new IOException("文件未找到");if(!f.canRead())throw new IOException("无法读取此文件");File shared=shareCopy(f);String mime=a.optString("mime",openWithMime(f.getPath()));String pkg=a.getString("pkg"),cls=a.getString("cls");runOnUiThread(()->openWithLaunch(shared,mime,pkg,cls));result=true;break;}
                     default:result=engine.call(action,a);
                 }
                 response.put("id",id);response.put("ok",true);response.put("data",result==null?JSONObject.NULL:result);
@@ -277,6 +281,88 @@ public class MainActivity extends Activity {
             Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(shareUri(file),mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(Intent.createChooser(intent,"打开方式"));
         }catch(Exception error){toast(error.getMessage()==null?"没有可处理此文件的应用":error.getMessage());}
+    }
+    private static String openWithMime(String path){
+        String name=new File(path).getName(),ext=name.substring(name.lastIndexOf('.')+1).toLowerCase(Locale.US);
+        switch(ext){
+            case "apk":return "application/vnd.android.package-archive";
+            case "zip":return "application/zip";
+            case "jar":return "application/java-archive";
+            case "pdf":return "application/pdf";
+            case "html":case "htm":return "text/html";
+            case "xml":case "axml":return "text/xml";
+            case "js":return "text/javascript";
+            case "css":return "text/css";
+            case "json":case "geojson":return "application/json";
+            case "txt":case "log":case "md":case "properties":case "ini":case "conf":case "csv":case "sh":case "smali":case "java":return "text/plain";
+        }
+        String media=mediaMime(path);
+        if(!media.equals("application/octet-stream"))return media;
+        String mapped=MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+        return mapped==null?"application/octet-stream":mapped;
+    }
+    private Object openWithApps(JSONObject a)throws Exception{
+        File f=new File(a.getString("path"));
+        if(!f.isFile())throw new IOException("文件未找到");
+        if(!f.canRead())throw new IOException("无法读取此文件");
+        String mime=openWithMime(f.getPath());
+        JSONObject out=new JSONObject().put("mime",mime);
+        out.put("suggest",openWithList(new Intent(Intent.ACTION_VIEW).setDataAndType(shareUri(f),mime)));
+        out.put("text",openWithList(new Intent(Intent.ACTION_VIEW).setType("text/*")));
+        out.put("image",openWithList(new Intent(Intent.ACTION_VIEW).setType("image/*")));
+        out.put("video",openWithList(new Intent(Intent.ACTION_VIEW).setType("video/*")));
+        out.put("audio",openWithList(new Intent(Intent.ACTION_VIEW).setType("audio/*")));
+        return out;
+    }
+    private JSONArray openWithList(Intent intent)throws Exception{
+        PackageManager pm=getPackageManager();
+        List<ResolveInfo> ris=pm.queryIntentActivities(intent,PackageManager.MATCH_ALL);
+        Map<String,JSONObject> seen=new TreeMap<>();
+        for(ResolveInfo ri:ris){
+            if(ri.activityInfo==null)continue;
+            String pkg=ri.activityInfo.packageName,cls=ri.activityInfo.name;
+            String key=pkg+"/"+cls;
+            if(seen.containsKey(key))continue;
+            String label;
+            try{CharSequence l=ri.loadLabel(pm);label=l==null||l.length()==0?null:l.toString();}catch(Throwable e){label=null;}
+            if(label==null)label=cls.substring(cls.lastIndexOf('.')+1);
+            JSONObject o=new JSONObject();
+            o.put("label",label).put("pkg",pkg).put("cls",cls);
+            try{o.put("icon",openWithIcon(ri.activityInfo.loadIcon(pm)));}catch(Throwable ignored){o.put("icon","");}
+            seen.put(key,o);
+        }
+        JSONArray list=new JSONArray();
+        List<JSONObject> values=new ArrayList<>(seen.values());
+        Collections.sort(values,(x,y)->String.CASE_INSENSITIVE_ORDER.compare(x.optString("label"),y.optString("label")));
+        for(JSONObject o:values)list.put(o);
+        return list;
+    }
+    private static String openWithIcon(Drawable drawable){
+        if(drawable==null)return "";
+        Bitmap bmp=Bitmap.createBitmap(96,96,Bitmap.Config.ARGB_8888);
+        Canvas canvas=new Canvas(bmp);
+        try{
+            drawable.setBounds(0,0,96,96);
+            drawable.draw(canvas);
+            ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.PNG,100,buffer);
+            bmp.recycle();
+            return Base64.encodeToString(buffer.toByteArray(),Base64.NO_WRAP);
+        }catch(Throwable e){
+            bmp.recycle();
+            return "";
+        }
+    }
+    private void openWithLaunch(File shared,String mime,String pkg,String cls){
+        try{
+            Uri uri=shareUri(shared);
+            Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime)
+                    .setComponent(new ComponentName(pkg,cls))
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.setClipData(ClipData.newRawUri("文件",uri));
+            try{grantUriPermission(pkg,uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Throwable ignored){}
+            startActivity(intent);
+        }catch(Exception error){toast(error.getMessage()==null?"无法用所选应用打开":error.getMessage());}
     }
     private void openMediaOverlay(String path,String kind,String name){
         if(mediaOverlay!=null)closeMedia();
@@ -484,7 +570,8 @@ public class MainActivity extends Activity {
         "ENV="+envFile.getAbsolutePath(),
         "PS1=\\w \\$ "
     };}
-    private void openTerminal(String path){
+    private void openTerminal(String path){openTerminal(path,"");}
+    private void openTerminal(String path,String command){
         if(terminalOverlay!=null||root==null)return;
         File cwd=new File(path);
         if(!cwd.isDirectory())cwd=getFilesDir();
@@ -502,6 +589,11 @@ public class MainActivity extends Activity {
         terminalView.setDefaultFocusHighlightEnabled(false);
         terminalSession=new TerminalSession("/system/bin/sh",cwdPath,new String[]{"-i"},terminalEnv(home,cwdPath),2000,new TermSessionClient());
         terminalView.attachSession(terminalSession);
+        if(command!=null&&!command.trim().isEmpty()){
+            final byte[] bytes=(command.trim()+"\n").getBytes(StandardCharsets.UTF_8);
+            final TerminalSession session=terminalSession;
+            if(terminalView!=null)terminalView.postDelayed(()->{try{if(terminalSession==session)session.write(bytes,0,bytes.length);}catch(Throwable ignored){}},350);
+        }
 
         terminalOverlay=new FrameLayout(this);
         terminalOverlay.setBackgroundColor(0xff000000);

@@ -1,8 +1,20 @@
-# Cyber Hub Manager — 0.1.12 development build
+# Cyber Hub Manager — 0.1.13 development build
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 
-Install `Cyber-Hub-Manager-0.1.12.apk` as an **Update** over the existing app. Package `com.cyberhub.manager`, development signer and local asset origin are unchanged; versionCode is 13. Do not uninstall if you want to keep the private Workspace.
+Install `Cyber-Hub-Manager-0.1.13.apk` as an **Update** over the existing app. Package `com.cyberhub.manager`, development signer and local asset origin are unchanged; versionCode is 14. Do not uninstall if you want to keep the private Workspace.
+
+## Open with (长按 → 打开方式)
+
+Long-press a file → **打开方式…** now opens an MT-style chooser dialog matching the reference screenshots:
+
+- Title row “打开方式…” with a search (magnifier) and a help button on the right.
+- Tabs: **内置 / 系统建议 / 文本 / 图片 / 视频 / 音频** — media tabs appear only when the file is that kind; remote-storage files only get the built-in tab.
+- **内置** is a 3-column grid of colourful rounded tiles: 编辑文本, 浏览压缩包, 查看图片, 十六进制, 播放音乐, 播放视频, XML 功能, DEX 功能, ARSC 功能, APK 信息, APKS 功能, Linux 脚本 (.sh/.bash run in the built-in terminal). Tiles that do not apply to the file type are greyed out.
+- **系统建议 / 文本 / 图片 / 视频 / 音频** query the system PackageManager (`ACTION_VIEW`, the file’s real MIME or `text/*`, `image/*`, `video/*`, `audio/*`) and show real app icons (rasterised PNG) and labels; tapping a tile launches that exact activity through the app’s FileProvider with read permission (archive entries are extracted to a temp copy first).
+- The magnifier filters the current tab by name; a **关闭** button sits at the bottom right.
+
+A supporting **hex viewer** tool page was added (paged rows with address / hex / ASCII columns — 8 bytes per row on phones, 16 on wide screens — plus first/prev/next/last navigation and `0x`-style offset jumping).
 
 ## Long-press file tools
 
@@ -123,7 +135,7 @@ All runtime JARs, four Zstandard Android ABIs and local UI assets are included. 
 python tools/build.py --sdk /absolute/path/to/android-sdk
 ```
 
-Its default build-tools selection is 35.0.0 (required for `zipalign -P 16`); pass `--tools` for another installed build-tools directory. It stores native libraries uncompressed, aligns them to 16 KB, then verifies every packaged ELF LOAD segment and ZIP data offset before publishing. Output: `dist/Cyber-Hub-Manager-0.1.12.apk`. It compiles with desktop ECJ, converts with D8, aligns, signs, verifies signatures and checks packaged assets before publishing.
+Its default build-tools selection is 35.0.0 (required for `zipalign -P 16`); pass `--tools` for another installed build-tools directory. It stores native libraries uncompressed, aligns them to 16 KB, then verifies every packaged ELF LOAD segment and ZIP data offset before publishing. Output: `dist/Cyber-Hub-Manager-0.1.13.apk`. It compiles with desktop ECJ, converts with D8, aligns, signs, verifies signatures and checks packaged assets before publishing.
 
 `python tools/dependencies.py` recreates pinned runtime JARs. `python tools/compiler-api.py /path/to/platforms/android-34/android.jar` recreates the compile-only classpath asset. Dependency/source/license information is in `THIRD-PARTY-NOTICES.txt`, `DEPENDENCIES.json` and `licenses/`.
 

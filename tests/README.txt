@@ -8,6 +8,10 @@ Use Node.js + Happy DOM 15.11.7. Set HAPPY_DOM_PATH to its lib/index.js if it is
 not at ../../toolchain/test-node/node_modules/happy-dom/lib/index.js.
 Run startup-smoke.cjs, dom-smoke.cjs, layout-smoke.cjs, video-ui-smoke.cjs,
 motion-zoom-smoke.cjs, java-edit-ui-smoke.cjs and apks-ui-smoke.cjs for 95 checks.
+Run open-with-ui-smoke.cjs for 8 checks of the long-press Open With dialog
+(tabs, builtin tile grid, dynamic greying, app queries, explicit launch,
+search, hex viewer). open-with-screenshot.cjs renders reference PNGs with
+Playwright when a browser is available (CHROME_BIN style paths).
 
 performance-profile.cjs counts full-buffer reads, line-mark visits and editor
 refreshes on a 15,003-line file. UI_SCRIPT can point to an older app.js for

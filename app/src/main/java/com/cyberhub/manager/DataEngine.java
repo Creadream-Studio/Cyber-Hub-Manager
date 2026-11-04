@@ -13,7 +13,7 @@ public final class DataEngine {
  boolean permission(){return Build.VERSION.SDK_INT>=30?Environment.isExternalStorageManager():activity.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;}
  synchronized Object call(String action,JSONObject a)throws Exception{
   switch(action){
-   case "init":return new JSONObject().put("permission",permission()).put("home",Environment.getExternalStorageDirectory().getPath()).put("workspace",workspace.getPath()).put("version","0.1.12").put("ownApk",activity.getApplicationInfo().sourceDir);
+   case "init":return new JSONObject().put("permission",permission()).put("home",Environment.getExternalStorageDirectory().getPath()).put("workspace",workspace.getPath()).put("version","0.1.13").put("ownApk",activity.getApplicationInfo().sourceDir);
    case "list":return list(a);
    case "disk":{File f=new File(a.getString("path"));return new JSONObject().put("total",f.getTotalSpace()).put("free",f.getUsableSpace());}
    case "exportText":{File f=FileOps.child(new File(a.getString("path")),a.getString("name"));if(f.exists())throw new IOException("输出已存在");FileOps.writeAtomic(f,a.getString("text").getBytes(StandardCharsets.UTF_8),false);record("已导出 "+f);return f.getPath();}
@@ -34,6 +34,7 @@ public final class DataEngine {
    case "arscSave":{JSONObject r=arsc.save(a.getString("session"));record("已保存资源表 "+r.optString("path"));return r;}
    case "arscClose":arsc.close(a.getString("session"));return true;
    case "resolve":return resolve(a).getPath();
+   case "hexView":return hexView(a);
    case "translateConfig":{String op=a.optString("op","get");if(op.equals("set")){translate.saveConfig(a);return translate.config();}return new JSONObject().put("config",translate.config()).put("languages",translate.languages());}
    case "translate":return translate.translate(a);
    case "create":{File f=FileOps.child(new File(a.getString("path")),a.getString("name"));if(f.exists())throw new IOException("名称已存在");boolean restricted=RestrictedPaths.isRestricted(f,activity.getPackageName());if(a.optBoolean("folder")){if(restricted){if(!SafAccess.create(activity,f,true))throw new IOException("无法创建文件夹。请先授权 Android/data。");}else if(!f.mkdir())throw new IOException("无法创建文件夹");}else{if(restricted){if(!SafAccess.writeFile(activity,f,new byte[0],false))throw new IOException("无法创建文件。请先授权 Android/data。");}else FileOps.writeAtomic(f,new byte[0],false);}record("已创建 "+f);return f.getPath();}
@@ -119,6 +120,20 @@ public final class DataEngine {
  }
   File resolve(JSONObject a)throws Exception{
    String archive=a.optString("archive");if(archive.isEmpty())return new File(a.getString("path"));String entry=a.getString("entry");String token=Integer.toHexString((archive+"|"+entry).hashCode());File dir=new File(cache,token);dir.mkdirs();File f=FileOps.child(dir,new File(entry).getName());byte[] bytes=FileOps.zipEntry(new File(archive),entry,256L*1024*1024);FileOps.writeAtomic(f,bytes,false);return f;
+  }
+  private Object hexView(JSONObject a)throws Exception{
+   File f=resolve(a);
+   if(!f.isFile())throw new IOException("文件未找到");
+   if(!f.canRead())throw new IOException("无法读取此文件");
+   long size=f.length(),offset=Math.max(0,a.optLong("offset",0));
+   int want=Math.max(256,Math.min(a.optInt("length",4096),65536));
+   if(offset>=size&&size>0)offset=0;
+   int count=(int)Math.min(want,size-offset);
+   byte[] data=new byte[Math.max(count,0)];
+   if(count>0)try(java.io.RandomAccessFile raf=new java.io.RandomAccessFile(f,"r")){raf.seek(offset);int read=0;while(read<count){int n=raf.read(data,read,count-read);if(n<0)break;read+=n;}if(read<count)data=java.util.Arrays.copyOf(data,read);}
+   StringBuilder hex=new StringBuilder(data.length*2),ascii=new StringBuilder(data.length);
+   for(byte b:data){int v=b&0xff;hex.append(Character.forDigit(v>>>4,16)).append(Character.forDigit(v&0xf,16));ascii.append(v>=32&&v<127?(char)v:'.');}
+   return new JSONObject().put("path",f.getPath()).put("name",f.getName()).put("size",size).put("offset",offset).put("length",data.length).put("hex",hex.toString()).put("ascii",ascii.toString());
   }
   static String strip(String name){int p=name.lastIndexOf('.');return p>0?name.substring(0,p):name;}
   File apkSource(JSONObject a)throws Exception{File f=resolve(a);if(!f.isFile()||!f.getName().toLowerCase(Locale.ROOT).endsWith(".apk"))throw new IOException("请选择一个 APK 文件");return f;}
