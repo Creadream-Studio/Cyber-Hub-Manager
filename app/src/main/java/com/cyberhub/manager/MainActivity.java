@@ -112,10 +112,10 @@ public class MainActivity extends Activity {
     }
     private WebResourceResponse localAsset(Uri uri,String method,Map<String,String> requestHeaders){
         String path=uri.getPath();
-        if("GET".equals(method)&&"https".equals(uri.getScheme())&&"appassets.androidplatform.net".equals(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443)&&path!=null){
+        if(("GET".equals(method)||"HEAD".equals(method))&&"https".equals(uri.getScheme())&&"appassets.androidplatform.net".equals(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443)&&path!=null){
             // Same-origin media streaming: /media/<id> is resolved by MediaServer
             // with full Range support. Never expose raw file paths here.
-            if(path.startsWith("/media/"))return mediaResponse(path.substring(7),requestHeaders==null?null:requestHeaders.get("Range"));
+            if(path.startsWith("/media/"))return mediaResponse(path.substring(7),"HEAD".equals(method),requestHeaders==null?null:requestHeaders.get("Range"));
             if(path.startsWith("/assets/")){
             String name=path.substring(8);
             if(Arrays.asList("app.html","app.js","boot.js","style.css","vendor/codemirror.js","vendor/codemirror.css","vendor/clike.js","vendor/xml.js","vendor/searchcursor.js").contains(name)){
@@ -129,7 +129,7 @@ public class MainActivity extends Activity {
         // No network fallback, arbitrary local files, or signing-key exposure through WebView.
         return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",Collections.emptyMap(),new ByteArrayInputStream("未找到".getBytes(StandardCharsets.UTF_8)));
     }
-    private WebResourceResponse mediaResponse(String id,String range){
+    private WebResourceResponse mediaResponse(String id,boolean headOnly,String range){
         if(mediaServer==null)return notFoundResponse();
         MediaServer.Response r;
         try{r=mediaServer.serve(id,range);}catch(Throwable e){return notFoundResponse();}
@@ -139,6 +139,7 @@ public class MainActivity extends Activity {
         headers.put("Cache-Control","no-store");
         headers.put("Content-Length",String.valueOf(r.length));
         if(r.contentRange!=null)headers.put("Content-Range",r.contentRange);
+        if(headOnly)return new WebResourceResponse(r.mime==null?"application/octet-stream":r.mime,null,r.status,r.reason,headers,new ByteArrayInputStream(new byte[0]));
         return new WebResourceResponse(r.mime==null?"application/octet-stream":r.mime,null,r.status,r.reason,headers,r.stream);
     }
     private WebResourceResponse notFoundResponse(){

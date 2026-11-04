@@ -991,3 +991,7 @@ body.list-small .fileicon.thumbFill .playBadge{width:9px;height:9px}
 body.list-small .fileicon.thumbFill .playBadge svg{width:6px;height:6px}
 body.list-large .fileicon.thumbFill .playBadge{width:13px;height:13px}
 body.list-large .fileicon.thumbFill .playBadge svg{width:8px;height:8px}
+
+/* 0.1.21 播放器防卡死：超时提示里的回退按钮可点击 */
+.playerLoading{pointer-events:none}
+.playerLoading .playerFallbackBtn{pointer-events:auto;margin-top:8px;padding:6px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-size:13px}
