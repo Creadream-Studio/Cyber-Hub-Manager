@@ -32,7 +32,7 @@
     box.className = 'bootStatus';
     box.appendChild(element('h2', '无法启动'));
     box.appendChild(element('p', '请重试。如果再次发生，请分享以下错误详情。'));
-    var details = element('pre', '赛博中枢管家 0.1.11\n' + message + '\n\n' + navigator.userAgent);
+    var details = element('pre', '赛博中枢管家 0.1.12\n' + message + '\n\n' + navigator.userAgent);
     details.className = 'bootDetails';
     box.appendChild(details);
     var retry = element('button', '重试');

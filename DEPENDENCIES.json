@@ -10,6 +10,11 @@
     "version": "1.4.7"
   },
   {
+    "group": "org.bouncycastle",
+    "artifact": "bcpg-jdk15on",
+    "version": "1.70"
+  },
+  {
     "group": "org.smali",
     "artifact": "baksmali",
     "version": "2.5.2"

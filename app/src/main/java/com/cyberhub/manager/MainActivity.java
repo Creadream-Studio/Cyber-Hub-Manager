@@ -5,6 +5,9 @@ import android.os.*;
 import android.Manifest;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.provider.Settings;
 import android.webkit.*;
@@ -29,6 +32,7 @@ import java.util.concurrent.*;
 public class MainActivity extends Activity {
     private WebView web;
     private DataEngine engine;
+    private String pendingOpenPath;
     private static final String APP_URL="https://appassets.androidplatform.net/assets/app.html";
     private final ExecutorService worker=Executors.newFixedThreadPool(2);
     private final ExecutorService thumbnails=Executors.newSingleThreadExecutor();
@@ -50,6 +54,7 @@ public class MainActivity extends Activity {
     private AudioManager mediaAudioManager;
     @Override public void onCreate(Bundle state){super.onCreate(state);
         System.setProperty("java.io.tmpdir",getCacheDir().getPath());
+        pendingOpenPath=getIntent()==null?null:getIntent().getStringExtra("open_path");
         try{engine=new DataEngine(this);web=new WebView(this);web.setBackgroundColor(0xff303030);
         WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setAllowFileAccessFromFileURLs(false);s.setAllowUniversalAccessFromFileURLs(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setTextZoom(100);s.setSupportZoom(false);s.setBuiltInZoomControls(false);s.setDisplayZoomControls(false);
         web.setWebChromeClient(new WebChromeClient(){@Override public boolean onConsoleMessage(ConsoleMessage m){
@@ -60,7 +65,10 @@ public class MainActivity extends Activity {
             @Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){return localAsset(r.getUrl(),r.getMethod());}
             @Override public void onReceivedError(WebView v,WebResourceRequest r,WebResourceError e){if(r.isForMainFrame())showStartupError("无法加载界面："+e.getDescription());}
             @Override public void onPageFinished(WebView v,String url){
-                if(APP_URL.equals(url))v.evaluateJavascript("typeof window.CyberBoot === 'object'",result->{if(!"true".equals(result))showStartupError("界面启动脚本未能加载。");});
+                if(APP_URL.equals(url)){
+                    v.evaluateJavascript("typeof window.CyberBoot === 'object'",result->{if(!"true".equals(result))showStartupError("界面启动脚本未能加载。");});
+                    if(pendingOpenPath!=null){String path=pendingOpenPath;pendingOpenPath=null;openPathInUi(path);}
+                }
             }
             @Override public boolean onRenderProcessGone(WebView v,RenderProcessGoneDetail detail){
                 if(web==v){web=null;v.destroy();}showStartupError("Android WebView 已停止。轻点重试以重新打开应用。");return true;
@@ -68,6 +76,36 @@ public class MainActivity extends Activity {
         });
         web.addJavascriptInterface(new Bridge(),"CyberNative");root=new FrameLayout(this);root.addView(web,new FrameLayout.LayoutParams(-1,-1));setContentView(root);web.loadUrl(APP_URL);
         }catch(Throwable error){showStartupError(error.getClass().getSimpleName()+": "+error.getMessage());}
+    }
+    @Override protected void onNewIntent(Intent intent){
+        super.onNewIntent(intent);
+        String path=intent==null?null:intent.getStringExtra("open_path");
+        if(path!=null)runOnUiThread(()->{if(web!=null){pendingOpenPath=null;openPathInUi(path);}else pendingOpenPath=path;});
+    }
+    /** Navigate the file pane to a path requested by a desktop shortcut. */
+    private void openPathInUi(String path){
+        if(web==null)return;
+        web.evaluateJavascript("(function(){var p="+JSONObject.quote(path)+";var n=0;var t=function(){if(window.cyberOpenPath)window.cyberOpenPath(p);else if(n++<100)setTimeout(t,100);};t();})()",null);
+    }
+    /** Request a launcher shortcut that opens this file or folder in the app. */
+    private void pinShortcut(File target){
+        try{
+            ShortcutManager shortcuts=getSystemService(ShortcutManager.class);
+            if(shortcuts==null||!shortcuts.isRequestPinShortcutSupported()){toast("当前桌面不支持固定快捷方式");return;}
+            String name=target.getName();
+            String id="open-"+Integer.toHexString(target.getAbsolutePath().hashCode());
+            Intent intent=new Intent(this,MainActivity.class)
+                    .setAction(Intent.ACTION_VIEW)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("open_path",target.getAbsolutePath());
+            ShortcutInfo info=new ShortcutInfo.Builder(this,id)
+                    .setShortLabel(name.length()>20?name.substring(0,20):name)
+                    .setLongLabel(name)
+                    .setIcon(Icon.createWithResource(this,getApplicationInfo().icon!=0?getApplicationInfo().icon:android.R.drawable.sym_def_app_icon))
+                    .setIntent(intent)
+                    .build();
+            if(!shortcuts.requestPinShortcut(info,null))toast("桌面拒绝了快捷方式请求");
+        }catch(Throwable e){toast("创建快捷方式失败："+e.getMessage());}
     }
     private WebResourceResponse localAsset(Uri uri,String method){
         String path=uri.getPath();
@@ -86,7 +124,7 @@ public class MainActivity extends Activity {
     private void showStartupError(String message){
         android.widget.LinearLayout box=new android.widget.LinearLayout(this);box.setOrientation(android.widget.LinearLayout.VERTICAL);box.setPadding(32,40,32,24);box.setBackgroundColor(0xff303030);
         android.content.pm.PackageInfo provider=WebView.getCurrentWebViewPackage();
-        String details="赛博中枢管家 0.1.11\n\n"+message+"\n\nAndroid "+Build.VERSION.RELEASE+"\nWebView: "+(provider==null?"不可用":provider.packageName+" "+provider.versionName);
+        String details="赛博中枢管家 0.1.12\n\n"+message+"\n\nAndroid "+Build.VERSION.RELEASE+"\nWebView: "+(provider==null?"不可用":provider.packageName+" "+provider.versionName);
         android.widget.TextView text=new android.widget.TextView(this);text.setText(details);text.setTextColor(0xffdddddd);text.setTextSize(16);text.setTextIsSelectable(true);box.addView(text);
         android.widget.Button retry=new android.widget.Button(this);retry.setText("重试");retry.setOnClickListener(v->recreate());box.addView(retry);
         android.widget.Button copy=new android.widget.Button(this);copy.setText("复制错误详情");copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("启动错误",details));toast("错误详情已复制");});box.addView(copy);
@@ -117,6 +155,7 @@ public class MainActivity extends Activity {
                     case "mediaPlay":{String p=a.getString("path");File f=new File(p);if(!f.isFile())throw new IOException("媒体文件未找到");if(!f.canRead())throw new IOException("无法读取媒体文件");String kind=a.optString("kind","audio"),name=a.optString("name",f.getName());runOnUiThread(()->openMediaOverlay(p,kind,name));result=true;break;}
                     case "mediaClose":runOnUiThread(()->closeMedia());result=true;break;
                     case "mediaExternal":{File f=new File(a.getString("path"));if(!f.isFile())throw new IOException("文件未找到");File shared=shareCopy(f);String mime=mediaMime(f.getPath());runOnUiThread(()->openExternalMedia(shared,mime));result=true;break;}
+                    case "createShortcut":{File target=new File(a.getString("path"));if(!target.exists())throw new IOException("目标不存在");runOnUiThread(()->pinShortcut(target));result=true;break;}
                     default:result=engine.call(action,a);
                 }
                 response.put("id",id);response.put("ok",true);response.put("data",result==null?JSONObject.NULL:result);

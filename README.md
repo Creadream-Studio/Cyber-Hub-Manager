@@ -1,8 +1,22 @@
-# Cyber Hub Manager — 0.1.11 development build
+# Cyber Hub Manager — 0.1.12 development build
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 
-Install `Cyber-Hub-Manager-0.1.11.apk` as an **Update** over the existing app. Package `com.cyberhub.manager`, development signer and local asset origin are unchanged; versionCode is 12. Do not uninstall if you want to keep the private Workspace.
+Install `Cyber-Hub-Manager-0.1.12.apk` as an **Update** over the existing app. Package `com.cyberhub.manager`, development signer and local asset origin are unchanged; versionCode is 13. Do not uninstall if you want to keep the private Workspace.
+
+## Long-press file tools
+
+Long-press a file (or multi-select) → **工具** now offers eight tools, matching the reference screenshot. Entries that do not apply to the current selection are greyed out automatically:
+
+- **文件分割** — split one file into fixed-size volumes (`原名.part01`, `.part02`, …). Size is entered in bytes with `10MB` / `512KB` style units. Optionally moves the source to the recycle bin afterwards.
+- **文件合并** — select any two or more volumes of one set; every `name.partNN` sibling in the folder is collected in order and merged back into `name`.
+- **文件加密 / 文件解密 (GPG)** — standard OpenPGP (RFC 4880) using Bouncy Castle `bcpg` 1.70: AES-256 with SHA-1 MDC integrity protection over ZIP-compressed literal data. Both **passphrase (symmetric)** and **public-key** modes are provided; output is binary `.gpg` or ASCII-armored `.asc`. Files decrypt with desktop GnuPG (`gpg -d 文件.gpg`), and files encrypted by desktop `gpg -c` / `gpg -e` decrypt here (the matching secret-key file plus its passphrase is entered for public-key messages). Decryption writes next to the source with `.gpg`/`.asc` stripped.
+- **交换文件名** — swaps the names of exactly two selected files/folders in the same folder, with rollback on failure.
+- **创建软链接** — creates a symbolic link (via `android.system.Os.symlink`) in the other pane's folder when it is a normal folder, otherwise in the current folder.
+- **创建快捷方式** — pins a launcher shortcut (ShortcutManager) that jumps straight to that file/folder inside this app via the new `open_path` intent extra.
+- **导出文件列表** — exports the current folder listing (type, size, modified time, name, totals) to a text file inside that folder.
+
+The previous SHA-256 / copy-path entries remain available through **属性** and the long-press sheet. `bcpg-jdk15on-1.70.jar` was added to `app/libs`, `tools/dependencies.py` and `DEPENDENCIES.json`, with its MIT license in `licenses/`.
 
 ## WebDAV fix
 
@@ -109,7 +123,7 @@ All runtime JARs, four Zstandard Android ABIs and local UI assets are included. 
 python tools/build.py --sdk /absolute/path/to/android-sdk
 ```
 
-Its default build-tools selection is 35.0.0 (required for `zipalign -P 16`); pass `--tools` for another installed build-tools directory. It stores native libraries uncompressed, aligns them to 16 KB, then verifies every packaged ELF LOAD segment and ZIP data offset before publishing. Output: `dist/Cyber-Hub-Manager-0.1.11.apk`. It compiles with desktop ECJ, converts with D8, aligns, signs, verifies signatures and checks packaged assets before publishing.
+Its default build-tools selection is 35.0.0 (required for `zipalign -P 16`); pass `--tools` for another installed build-tools directory. It stores native libraries uncompressed, aligns them to 16 KB, then verifies every packaged ELF LOAD segment and ZIP data offset before publishing. Output: `dist/Cyber-Hub-Manager-0.1.12.apk`. It compiles with desktop ECJ, converts with D8, aligns, signs, verifies signatures and checks packaged assets before publishing.
 
 `python tools/dependencies.py` recreates pinned runtime JARs. `python tools/compiler-api.py /path/to/platforms/android-34/android.jar` recreates the compile-only classpath asset. Dependency/source/license information is in `THIRD-PARTY-NOTICES.txt`, `DEPENDENCIES.json` and `licenses/`.
 
