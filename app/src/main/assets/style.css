@@ -545,9 +545,9 @@ body.light .overflowMenu{box-shadow:0 18px 36px #0003}
 .overflowMenu button:active{background:var(--surface)}
 .overflowMenu svg{width:20px;height:20px;margin-right:10px;color:var(--muted)}
 .overflowMenu .end{color:var(--muted);font-family:var(--mono);font-size:11px}
-.fileActionMenu{inset:auto 0 0 0;left:0;top:auto;transform:none;margin:0 auto;width:100%;max-width:520px;max-height:calc(100dvh - 12px);border:1px solid var(--border);border-bottom:0;border-radius:12px 12px 0 0;background:var(--raised);box-shadow:0 -18px 44px #0009;animation:sheetEnter .2s cubic-bezier(.2,0,0,1)}
-body.light .fileActionMenu{box-shadow:0 -18px 44px #0003}
-.closing .fileActionMenu{animation:sheetExit .14s ease-in forwards!important}
+.fileActionMenu{width:calc(100% - 40px);max-width:420px;border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;background:var(--raised);box-shadow:0 18px 44px #0009}
+body.light .fileActionMenu{box-shadow:0 18px 44px #0003}
+.closing .fileActionMenu{animation:dialogExit .12s ease-in forwards!important}
 .actionHint{padding:14px 16px 10px;border-bottom:1px solid var(--rule);font-size:11px;line-height:16px;color:var(--muted);font-family:var(--mono);letter-spacing:-.02em}
 .actionGrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px 8px 10px}
 .actionGrid button{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 10px;border-radius:6px;font-size:14px;text-align:left}
