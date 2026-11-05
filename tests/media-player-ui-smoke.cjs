@@ -43,12 +43,14 @@ await wait(()=>w.document.querySelectorAll('.file').length>5);
 evaluate("fileActions(state.panes[0].items.find(x=>x.name==='photo.jpg'))");
 await wait(()=>w.document.querySelector('.fileActionMenu'));
 const labels=menuItems().map(x=>x.textContent.replace('•','').trim());
-assert.deepEqual(labels,['→ 复制','→ 移动','删除','重命名','工具','压缩','属性','分享','打开方式…','添加书签'],'base menu order matches screenshot 2');
+assert.deepEqual(labels,['复制 ->','移动 ->','删除','重命名','工具','压缩','属性','分享','打开方式…','添加书签'],'base menu order matches screenshot 2');
 assert(!labels.some(x=>/预览|播放|其他应用/.test(x)),'no preview / external-open rows');
 assert.equal(w.document.querySelector('.fileActionMenu .actionHint').textContent,'带 • 的菜单表示可以长按触发单窗口操作','hint matches screenshot');
+assert(w.document.querySelector('.fileActionMenu .actionClose'),'close button present');
 const dots=menuItems().filter(x=>x.querySelector('.menuDot'));
 assert.equal(dots.length,2,'only copy & move carry the dot');
 assert(dots[0].textContent.includes('复制')&&dots[1].textContent.includes('移动'),'dots are on 复制/移动');
+const cb=w.document.querySelector('.fileActionMenu .actionClose');cb.click();assert(!w.document.querySelector('.fileActionMenu'),'close button closes menu');
 pass('long-press menu is the 10-item list with • markers');
 
 // 3) 内置图片预览（无「用其他应用打开」按钮）
