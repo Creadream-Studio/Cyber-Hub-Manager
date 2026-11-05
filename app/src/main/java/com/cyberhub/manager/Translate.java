@@ -45,7 +45,7 @@ public final class Translate {
  }
  boolean configured(JSONObject c){
   String p=c.optString("provider","tencent");
-  if(p.equals("tencent"))return !c.optString("tencentSecretId").isEmpty()&&!c.optString("tencentSecretKey").isEmpty()&&!c.optString("tencentProjectId").isEmpty();
+  if(p.equals("tencent"))return !c.optString("tencentSecretId").isEmpty()&&!c.optString("tencentSecretKey").isEmpty();
   if(p.equals("baidu"))return !c.optString("baiduAppId").isEmpty()&&!c.optString("baiduAppKey").isEmpty();
   if(p.equals("microsoft"))return !c.optString("microsoftKey").isEmpty();
   if(p.equals("ai"))return !c.optString("aiApiKey").isEmpty()||!c.optString("aiBaseUrl").isEmpty();
@@ -85,18 +85,20 @@ public final class Translate {
  }
  // ---------- Tencent Cloud TMT (TC3-HMAC-SHA256) ----------
  String tencent(JSONObject c,String text,String from,String to)throws Exception{
-  String secretId=c.optString("tencentSecretId"),secretKey=c.optString("tencentSecretKey"),projectId=c.optString("tencentProjectId");
-  if(secretId.isEmpty()||secretKey.isEmpty()||projectId.isEmpty())throw new IOException("请先在「翻译服务」中填写腾讯云的 SecretId、SecretKey 与项目 ID。");
+  String secretId=c.optString("tencentSecretId"),secretKey=c.optString("tencentSecretKey"),projectId=c.optString("tencentProjectId").trim();
+  if(secretId.isEmpty()||secretKey.isEmpty())throw new IOException("请先在「翻译服务」中填写腾讯云的 SecretId 与 SecretKey。");
+  if(!projectId.isEmpty()&&!projectId.matches("\\d+"))throw new IOException("腾讯云项目 ID 必须是纯数字（可留空使用默认项目 0）。");
   String[] row=languageRow(to);if(row==null)throw new IOException("不支持的目标语言："+to);
   String target=row[2];String source=from.equals("auto")?"auto":(languageRow(from)==null?from:languageRow(from)[2]);
-  JSONObject payload=new JSONObject().put("SourceText",text).put("Source",source).put("Target",target).put("ProjectId",Long.parseLong(projectId));
+  JSONObject payload=new JSONObject().put("SourceText",text).put("Source",source).put("Target",target).put("ProjectId",projectId.isEmpty()?0L:Long.parseLong(projectId));
   String body=payload.toString();
   String host="tmt.tencentcloudapi.com",service="tmt",action="TextTranslate",version="2018-03-21";
   long timestamp=System.currentTimeMillis()/1000L;
   String authorization=tencentAuthorization(secretId,secretKey,service,host,action,body,timestamp);
   JSONObject headers=new JSONObject().put("Content-Type","application/json; charset=utf-8").put("Host",host)
    .put("X-TC-Action",action).put("X-TC-Version",version).put("X-TC-Timestamp",String.valueOf(timestamp)).put("Authorization",authorization);
-  if(!c.optString("tencentRegion").isEmpty())headers.put("X-TC-Region",c.optString("tencentRegion"));
+  String region=c.optString("tencentRegion").trim();if(region.isEmpty())region="ap-guangzhou";
+  headers.put("X-TC-Region",region);
   String raw=post("https://"+host+"/",headers,body);
   JSONObject o=new JSONObject(raw),response=o.optJSONObject("Response");
   if(response==null)throw new IOException("腾讯云返回异常："+raw);
