@@ -73,9 +73,13 @@ public final class ElevatedAccess {
             waitExit(p,10);
             r.put("npId",readAll(p).trim());
         }catch(Throwable t){
-            java.io.StringWriter sw=new java.io.StringWriter();
-            t.printStackTrace(new java.io.PrintWriter(sw));
-            String s=sw.toString();r.put("npErr",s.length()>700?s.substring(0,700):s);
+            Throwable cause=(t instanceof java.lang.reflect.InvocationTargetException&&t.getCause()!=null)?t.getCause():t;
+            String msg;
+            if(cause instanceof IllegalStateException)msg="Shizuku 服务未启动（IllegalStateException）：请先在 Shizuku 应用内启动服务（无线调试或连接电脑启动），再回本应用申请授权";
+            else if(cause instanceof SecurityException)msg="未获得 Shizuku 授权（SecurityException）：请先在本应用「授权」页申请 Shizuku 授权";
+            else if(cause.getMessage()!=null&&cause.getMessage().contains("Shizuku"))msg=cause.getClass().getSimpleName()+": "+cause.getMessage();
+            else{java.io.StringWriter sw=new java.io.StringWriter();cause.printStackTrace(new java.io.PrintWriter(sw));String s=sw.toString();msg=s.length()>700?s.substring(0,700):s;}
+            r.put("npErr",msg);
         }
         try{File[] fs=listFiles(c,new File("/"));r.put("rootListCount",fs==null?-1:fs.length);}catch(Throwable t){r.put("rootListCount","err:"+t);}
         return r;
