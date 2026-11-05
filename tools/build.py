@@ -32,14 +32,15 @@ ecj=ROOT/'toolchain/ecj.jar'
 if not ecj.exists():
  ecj=B/'ecj.jar'
  if not ecj.exists():urllib.request.urlretrieve('https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.37.0/ecj-3.37.0.jar',ecj)
+resources=B/'resources.zip';run(native('aapt2','compile','--dir',P/'app/src/main/res','-o',resources))
+gen=B/'gen';shutil.rmtree(gen,ignore_errors=True);gen.mkdir()
+base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--java',gen,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','22','--version-name','0.1.22',resources))
 classes=B/'classes';shutil.rmtree(classes,ignore_errors=True);classes.mkdir()
 cp=os.pathsep.join(map(str,[api,*LIB]))
-run(java('-jar',ecj,'-11','-proc:none','-nowarn','-encoding','UTF-8','-classpath',cp,'-d',classes,*sorted((P/'app/src/main/java').rglob('*.java'))))
+run(java('-jar',ecj,'-11','-proc:none','-nowarn','-encoding','UTF-8','-classpath',cp,'-d',classes,gen/'com/cyberhub/manager/R.java',*sorted((P/'app/src/main/java').rglob('*.java'))))
 key=P/'app/src/main/assets/development-signing.p12'
 if not key.exists():
  run(['keytool','-J-Dkeystore.pkcs12.legacy','-genkeypair','-keystore',key,'-storetype','PKCS12','-storepass','cyberhub-development','-keypass','cyberhub-development','-alias','cyberhub-dev','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Cyber Hub Manager Development, O=Cyber Hub, C=IN'])
-resources=B/'resources.zip';run(native('aapt2','compile','--dir',P/'app/src/main/res','-o',resources))
-base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','22','--version-name','0.1.22',resources))
 classjar=B/'app-classes.jar'
 with zipfile.ZipFile(classjar,'w',zipfile.ZIP_DEFLATED) as z:
  for f in classes.rglob('*.class'):z.write(f,f.relative_to(classes))
