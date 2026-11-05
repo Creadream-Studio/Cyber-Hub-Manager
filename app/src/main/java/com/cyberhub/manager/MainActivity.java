@@ -34,6 +34,8 @@ import java.util.concurrent.*;
 public class MainActivity extends Activity {
     private WebView web;
     private DataEngine engine;
+    static final int UNINSTALL_REQ=4242;
+    public volatile boolean uninstallBusy;
     private String pendingOpenPath;
     private static final String APP_URL="https://appassets.androidplatform.net/assets/app.html";
     private final ExecutorService worker=Executors.newFixedThreadPool(2);
@@ -912,6 +914,10 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int req,int res,Intent data){
         super.onActivityResult(req,res,data);
+        if(req==UNINSTALL_REQ){
+            if(engine!=null)engine.uninstallNext();
+            return;
+        }
         if(req==SafAccess.REQUEST){
             String message=SafAccess.take(this,res,data);
             if(message!=null)toast(message);
