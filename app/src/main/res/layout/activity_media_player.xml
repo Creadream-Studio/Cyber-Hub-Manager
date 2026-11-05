@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000">
+
+    <!-- 视频画面 -->
+    <FrameLayout
+        android:id="@+id/videoContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+        <SurfaceView
+            android:id="@+id/surfaceView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+        <!-- 手势滑动快进提示 -->
+        <LinearLayout
+            android:id="@+id/seekOverlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="#99000000"
+            android:padding="16dp"
+            android:visibility="gone">
+            <TextView
+                android:id="@+id/seekDeltaText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp" />
+            <TextView
+                android:id="@+id/seekTargetText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#CCFFFFFF"
+                android:textSize="13sp" />
+        </LinearLayout>
+        <!-- 字幕渲染层 -->
+        <TextView
+            android:id="@+id/subtitleView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="64dp"
+            android:gravity="center"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- 音频封面 -->
+    <LinearLayout
+        android:id="@+id/artworkContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+        <ImageView
+            android:id="@+id/artworkView"
+            android:layout_width="240dp"
+            android:layout_height="240dp"
+            android:src="@android:drawable/ic_menu_gallery"
+            android:scaleType="fitCenter" />
+    </LinearLayout>
+
+    <!-- 顶部工具栏 -->
+    <LinearLayout
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#66000000"
+        android:padding="8dp">
+        <TextView
+            android:id="@+id/trackTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="#FFFFFFFF"
+            android:textSize="16sp" />
+        <ImageButton
+            android:id="@+id/btnAspect"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@android:drawable/ic_menu_crop"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="画面比例" />
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@android:drawable/ic_menu_preferences"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="播放器设置" />
+        <ImageButton
+            android:id="@+id/btnLock"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@android:drawable/ic_secure"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="锁定" />
+        <ImageButton
+            android:id="@+id/btnQueue"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="播放队列" />
+    </LinearLayout>
+
+    <!-- 艺术家/专辑（仅音频时由代码填充，此处紧凑显示在封面下方） -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/trackArtist" android:layout_width="0dp" android:layout_height="0dp" />
+        <TextView android:id="@+id/trackAlbum" android:layout_width="0dp" android:layout_height="0dp" />
+    </LinearLayout>
+
+    <!-- 错误提示 / 缓冲指示（居中覆盖层） -->
+    <TextView
+        android:id="@+id/errorMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textColor="#FFFF6666"
+        android:textSize="16sp"
+        android:visibility="gone" />
+    <TextView
+        android:id="@+id/bufferingIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textColor="#FFFFFFFF"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <!-- 锁定状态下的解锁按钮 -->
+    <ImageButton
+        android:id="@+id/btnUnlock"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="center"
+        android:src="@android:drawable/ic_partial_secure"
+        android:background="#66000000"
+        android:visibility="gone"
+        android:contentDescription="解锁" />
+
+    <!-- 底部控制区 -->
+    <LinearLayout
+        android:id="@+id/controlsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="#AA000000"
+        android:padding="8dp">
+
+        <!-- AB 循环条 -->
+        <LinearLayout
+            android:id="@+id/abRepeatBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+            <Button
+                android:id="@+id/btnSetA"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="设 A"
+                android:textColor="#FFFFFFFF"
+                android:background="?android:attr/selectableItemBackground" />
+            <SeekBar
+                android:id="@+id/abSeekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+            <Button
+                android:id="@+id/btnSetB"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="设 B"
+                android:textColor="#FFFFFFFF"
+                android:background="?android:attr/selectableItemBackground" />
+            <ImageButton
+                android:id="@+id/btnClearAB"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="清除 AB 循环" />
+        </LinearLayout>
+
+        <!-- 播放/上一曲/下一曲等按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+            <ImageButton
+                android:id="@+id/btnPrevious"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_media_previous"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="上一曲" />
+            <ImageButton
+                android:id="@+id/btnRewind"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_media_rew"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="快退" />
+            <ImageButton
+                android:id="@+id/btnPlayPause"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@android:drawable/ic_media_play"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="播放/暂停" />
+            <ImageButton
+                android:id="@+id/btnFastForward"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_media_ff"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="快进" />
+            <ImageButton
+                android:id="@+id/btnNext"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_media_next"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="下一曲" />
+            <ImageButton
+                android:id="@+id/btnRepeat"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_rotate"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="循环模式" />
+            <ImageButton
+                android:id="@+id/btnShuffle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_random"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="随机播放" />
+            <ImageButton
+                android:id="@+id/btnMute"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_lock_silent_mode_off"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="静音" />
+        </LinearLayout>
+
+        <!-- 进度与时间 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/currentTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp" />
+            <SeekBar
+                android:id="@+id/seekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="1000" />
+            <TextView
+                android:id="@+id/totalTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- 音量/倍速 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/speedLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1.0x"
+                android:gravity="center_vertical"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:minWidth="44dp" />
+            <SeekBar
+                android:id="@+id/speedSeekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="300" />
+            <SeekBar
+                android:id="@+id/volumeSeekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="100" />
+        </LinearLayout>
+
+        <!-- 播放队列 -->
+        <ListView
+            android:id="@+id/queueList"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:visibility="gone"
+            android:divider="#33FFFFFF"
+            android:dividerHeight="1px" />
+    </LinearLayout>
+</FrameLayout>
