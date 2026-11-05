@@ -101,8 +101,92 @@ public final class ArchiveTools {
    else{try(TarArchiveInputStream in=new TarArchiveInputStream(decompress(src,format))){TarArchiveEntry e;while((e=in.getNextEntry())!=null){if(!e.isFile()&&!e.isDirectory())throw new IOException("链接和特殊归档条目不会被解压");File f=output(dest,e.getName(),e.isDirectory(),count);if(e.isDirectory())continue;try(OutputStream out=new FileOutputStream(f)){count[0]+=FileOps.copy(in,out,FileOps.MAX_EXTRACT-count[0]);}}}}
   }catch(Exception e){FileOps.deleteTree(dest);throw e;}finally{if(merged!=null)merged.delete();}
  }
- static File output(File dest,String name,boolean directory,long[]count)throws Exception{
-  if(name==null||++count[1]>100000)throw new IOException("归档条目无效或过多");File f=FileOps.contained(dest,name);
+ static SevenZFile sevenZ(File src,String password)throws Exception{
+  SevenZFile.Builder b=SevenZFile.builder().setFile(src).setMaxMemoryLimitKiB(128*1024);
+  if(password!=null&&!password.isEmpty())b.setPassword(password.toCharArray());
+  return b.get();
+ }
+ /** 列出归档（zip/apk/7z/tar 系/gzip）内 prefix 目录下的直接子项，返回与文件列表相同结构的 JSONArray。 */
+ public static JSONArray listEntries(File src,String prefix,String password,String archivePath)throws Exception{
+  String format=format(src);Map<String,JSONObject>items=new TreeMap<>();
+  if(prefix==null)prefix="";if(!prefix.isEmpty()&&!prefix.endsWith("/"))prefix+="/";
+  if(format.equals("zip")||format.equals("apk")){
+   net.lingala.zip4j.ZipFile z=src!=null&&password!=null&&!password.isEmpty()?new net.lingala.zip4j.ZipFile(src,password.toCharArray()):new net.lingala.zip4j.ZipFile(src);
+   for(FileHeader h:z.getFileHeaders()){
+    String name=h.getFileName();if(name==null||name.startsWith("/")||name.contains("../"))continue;
+    if(!name.startsWith(prefix)||name.equals(prefix))continue;
+    String rest=name.substring(prefix.length());int slash=rest.indexOf('/');boolean dir=slash>=0;String shortName=dir?rest.substring(0,slash):rest;
+    if(shortName.isEmpty())continue;
+    long time=h.getLastModifiedTime()!=null?h.getLastModifiedTime().getTimeInMillis():0;
+    putItem(items,shortName,dir,dir?0:h.getUncompressedSize(),time,archivePath,prefix);
+   }
+  }else if(format.equals("7z")){
+   try(SevenZFile z=sevenZ(src,password)){
+    SevenZArchiveEntry e;
+    while((e=z.getNextEntry())!=null){
+     String name=e.getName();if(name==null||name.startsWith("/")||name.contains("../"))continue;
+     if(!name.startsWith(prefix)||name.equals(prefix))continue;
+     String rest=name.substring(prefix.length());int slash=rest.indexOf('/');boolean dir=slash>=0;String shortName=dir?rest.substring(0,slash):rest;
+     if(shortName.isEmpty())continue;
+     putItem(items,shortName,dir,dir?0:e.getSize(),e.getLastModifiedDate()!=null?e.getLastModifiedDate().getTime():0,archivePath,prefix);
+    }
+   }
+  }else{
+   try(TarArchiveInputStream in=new TarArchiveInputStream(decompress(src,format))){
+    TarArchiveEntry e;
+    while((e=in.getNextEntry())!=null){
+     String name=e.getName();if(name.startsWith("./"))name=name.substring(2);
+     if(name.isEmpty()||name.startsWith("/")||name.contains("../"))continue;
+     if(!name.startsWith(prefix)||name.equals(prefix))continue;
+     String rest=name.substring(prefix.length());int slash=rest.indexOf('/');boolean dir=slash>=0;String shortName=dir?rest.substring(0,slash):rest;
+     if(shortName.isEmpty())continue;
+     putItem(items,shortName,dir,dir?0:e.getSize(),e.getModTime()!=null?e.getModTime().getTime():0,archivePath,prefix);
+    }
+   }
+  }
+  List<JSONObject>vals=new ArrayList<>(items.values());vals.sort((x,y)->Boolean.compare(y.optBoolean("dir"),x.optBoolean("dir")));
+  JSONArray out=new JSONArray();for(JSONObject v:vals)out.put(v);return out;
+ }
+ private static void putItem(Map<String,JSONObject>items,String shortName,boolean dir,long size,long time,String archivePath,String prefix){
+  items.put(shortName,new JSONObject().put("name",shortName).put("dir",dir).put("size",size).put("time",time).put("archive",archivePath).put("entry",prefix+shortName+(dir?"/":"")));
+ }
+ /** 读取归档内单个条目的全部字节（上限 max），zip/apk/7z/tar 系/gzip 通用。 */
+ public static byte[] readEntry(File src,String entry,String password,long max)throws Exception{
+  String format=format(src);ByteArrayOutputStream bos=new ByteArrayOutputStream();byte[]buf=new byte[32768];
+  if(format.equals("zip")||format.equals("apk")){
+   net.lingala.zip4j.ZipFile z=password!=null&&!password.isEmpty()?new net.lingala.zip4j.ZipFile(src,password.toCharArray()):new net.lingala.zip4j.ZipFile(src);
+   FileHeader h=z.getFileHeader(entry);
+   if(h==null){for(FileHeader cand:z.getFileHeaders())if(cand.getFileName()!=null&&(cand.getFileName().equals(entry)||cand.getFileName().replaceFirst("^\\./","").equals(entry))){h=cand;break;}}
+   if(h==null||h.isDirectory())throw new IOException("归档条目不存在："+entry);
+   try(InputStream in=z.getInputStream(h)){int n;while((n=in.read(buf))!=-1){if(bos.size()+n>max)throw new IOException("归档条目过大（超过 "+(max/1048576)+" MB），请先解压");bos.write(buf,0,n);}}
+  }else if(format.equals("7z")){
+   try(SevenZFile z=sevenZ(src,password)){
+    SevenZArchiveEntry e;boolean found=false;
+    while((e=z.getNextEntry())!=null){
+     String name=e.getName();
+     if(!name.equals(entry)&&!name.replaceFirst("^\\./","").equals(entry))continue;
+     if(e.isDirectory())throw new IOException("归档条目不存在："+entry);
+     int n;while((n=z.read(buf))!=-1){if(bos.size()+n>max)throw new IOException("归档条目过大（超过 "+(max/1048576)+" MB），请先解压");bos.write(buf,0,n);}
+     found=true;break;
+    }
+    if(!found)throw new IOException("归档条目不存在："+entry);
+   }
+  }else{
+   try(TarArchiveInputStream in=new TarArchiveInputStream(decompress(src,format))){
+    TarArchiveEntry e;boolean found=false;
+    while((e=in.getNextEntry())!=null){
+     String name=e.getName();if(name.startsWith("./"))name=name.substring(2);
+     if(!name.equals(entry))continue;
+     if(!e.isFile())throw new IOException("归档条目不存在："+entry);
+     int n;while((n=in.read(buf))!=-1){if(bos.size()+n>max)throw new IOException("归档条目过大（超过 "+(max/1048576)+" MB），请先解压");bos.write(buf,0,n);}
+     found=true;break;
+    }
+    if(!found)throw new IOException("归档条目不存在："+entry);
+   }
+  }
+  return bos.toByteArray();
+ }
+ static File output(File dest,String name,boolean directory,long[]count)throws Exception{  if(name==null||++count[1]>100000)throw new IOException("归档条目无效或过多");File f=FileOps.contained(dest,name);
   if(directory){if(!f.isDirectory()&&!f.mkdirs())throw new IOException("无法创建文件夹");}
   else{if(f.exists())throw new IOException("重复的归档路径："+name);if(!f.getParentFile().isDirectory()&&!f.getParentFile().mkdirs())throw new IOException("无法创建文件夹");}return f;
  }
