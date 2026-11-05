@@ -43,6 +43,27 @@ public final class ElevatedAccess {
         try{return Shizuku.pingBinder();}catch(Throwable t){return false;}
     }
 
+    /** binder 由 Shizuku 服务端异步送达（provider 进程拉起→推送），刚启动时可能尚未到达；带短重试。 */
+    public static boolean shizukuRunningWait(){
+        if(shizukuRunning())return true;
+        for(int i=0;i<4;i++){
+            try{Thread.sleep(400);}catch(InterruptedException e){Thread.currentThread().interrupt();return false;}
+            if(shizukuRunning())return true;
+        }
+        return false;
+    }
+
+    /** ShizukuProvider 是否已在本应用 manifest 中正确注册（authorities 必须是 包名+".shizuku"）。 */
+    public static boolean shizukuProviderRegistered(Context c){
+        try{
+            android.content.pm.ProviderInfo info=c.getPackageManager().getProviderInfo(new android.content.ComponentName(c,"rikka.shizuku.ShizukuProvider"),0);
+            if(info==null)return false;
+            String expected=c.getPackageName()+".shizuku";
+            for(String authority:info.authority.split(";"))if(expected.equals(authority))return true;
+            return false;
+        }catch(Throwable t){return false;}
+    }
+
     public static boolean shizukuGranted(){
         try{return shizukuRunning()&&!Shizuku.isPreV11()&&Shizuku.checkSelfPermission()==PackageManager.PERMISSION_GRANTED;}catch(Throwable t){return false;}
     }
@@ -61,7 +82,8 @@ public final class ElevatedAccess {
         r.put("rootGranted",rootGranted(c));
         r.put("rootAvailable",rootBinaryExists());
         r.put("shizukuInstalled",shizukuInstalled(c));
-        r.put("shizukuRunning",shizukuRunning());
+        r.put("shizukuProviderRegistered",shizukuProviderRegistered(c));
+        r.put("shizukuRunning",shizukuRunningWait());
         r.put("shizukuGranted",shizukuGranted());
         try{r.put("shizukuVersion",shizukuRunning()?Shizuku.getVersion():-1);}catch(Throwable t){r.put("shizukuVersion","err:"+t.getClass().getSimpleName());}
         try{String out=elevatedCommand(c,"id");r.put("elevatedId",out==null?JSONObject.NULL:out.trim());}catch(Throwable t){r.put("elevatedId","err:"+t);}
@@ -75,7 +97,11 @@ public final class ElevatedAccess {
         }catch(Throwable t){
             Throwable cause=(t instanceof java.lang.reflect.InvocationTargetException&&t.getCause()!=null)?t.getCause():t;
             String msg;
-            if(cause instanceof IllegalStateException)msg="Shizuku 服务未启动（IllegalStateException）：请先在 Shizuku 应用内启动服务（无线调试或连接电脑启动），再回本应用申请授权";
+            if(cause instanceof IllegalStateException){
+                msg=shizukuProviderRegistered(c)
+                    ?"Shizuku 服务未启动或 binder 未送达（IllegalStateException）：请确认 Shizuku 应用内服务显示「正在运行」；若刚启动服务，请从最近任务划掉本应用后重新打开再试"
+                    :"ShizukuProvider 未正确注册（IllegalStateException）：请升级本应用到最新版本（旧版应用的 provider 注册名有误，导致永远连不上 Shizuku）";
+            }
             else if(cause instanceof SecurityException)msg="未获得 Shizuku 授权（SecurityException）：请先在本应用「授权」页申请 Shizuku 授权";
             else if(cause.getMessage()!=null&&cause.getMessage().contains("Shizuku"))msg=cause.getClass().getSimpleName()+": "+cause.getMessage();
             else{java.io.StringWriter sw=new java.io.StringWriter();cause.printStackTrace(new java.io.PrintWriter(sw));String s=sw.toString();msg=s.length()>700?s.substring(0,700):s;}
@@ -90,7 +116,8 @@ public final class ElevatedAccess {
             .put("rootGranted",rootGranted(c))
             .put("rootAvailable",rootBinaryExists())
             .put("shizukuInstalled",shizukuInstalled(c))
-            .put("shizukuRunning",shizukuRunning())
+            .put("shizukuProviderRegistered",shizukuProviderRegistered(c))
+            .put("shizukuRunning",shizukuRunningWait())
             .put("shizukuGranted",shizukuGranted());
     }
 
@@ -123,7 +150,7 @@ public final class ElevatedAccess {
 
     private static synchronized boolean requestShizuku(){
         try{
-            if(!shizukuRunning()||Shizuku.isPreV11()||Shizuku.getVersion()<11)return false;
+            if(!shizukuRunningWait()||Shizuku.isPreV11()||Shizuku.getVersion()<11)return false;
             if(Shizuku.checkSelfPermission()==PackageManager.PERMISSION_GRANTED)return true;
             if(!listenerAdded){Shizuku.addRequestPermissionResultListener(LISTENER);listenerAdded=true;}
             shizukuResult.set(-1);
