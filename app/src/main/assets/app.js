@@ -1524,51 +1524,156 @@ function arscBack(){
 async function showArscTranslate(args,name,session){
   let sid=session;
   if(!sid){const s=await rpc('arscOpen',Object.assign({},args,{name:name||''}));sid=s.session;}
-  state.arscTranslate={session:sid,name:name||'resources.arsc',config:'',configs:[],rows:[],total:0,offset:0,limit:100,query:'',dirty:false,opened:!session};
+  state.arscTranslate={session:sid,name:name||'resources.arsc',config:'',configs:[],rows:[],total:0,limit:2000,query:'',dirty:false,opened:!session,level:'langs',sel:new Set(),multi:false,rangeOn:false,anchor:null,lang:'en'};
   state.previous=state.screen==='tool'?state.previous:'files';state.screen='tool';
   const first=await rpc('arscTranslate',{session:sid,config:'',offset:0,limit:1,query:''});
-  const cfgs=first.configs||[];
-  const pick=cfgs.find(c=>c.qualifiers);
-  state.arscTranslate.configs=cfgs;state.arscTranslate.config=pick?pick.qualifiers:'';
+  state.arscTranslate.configs=first.configs||[];
   await arscTranslateRender();
+}
+async function arscTranslateBackStrings(){
+  const a=state.arscTranslate;if(!a)return;
+  if((a.rows||[]).some(r=>r.changed))await arscTlFlush();
+  a.level='langs';a.offset=0;a.sel=new Set();a.multi=false;a.rangeOn=false;a.anchor=null;await arscTranslateRender();
+}
+function arscTranslateLabel(c){return c.qualifiers?c.qualifiers+'（'+(c.label||'')+'）':'[DEFAULT]';}
+function arscTlPairs(){const a=state.arscTranslate;if(!a)return [];const q=(a.query||'').toLowerCase();return (a.rows||[]).filter(r=>!q||(r.source||'').toLowerCase().includes(q)||(r.target||'').toLowerCase().includes(q)||(r.name||'').toLowerCase().includes(q));}
+async function arscTlFlush(){
+ const a=state.arscTranslate;if(!a)return;
+ const list=(a.rows||[]).filter(r=>r.changed);
+ for(const r of list){
+  try{await rpc('arscEdit',{session:a.session,op:'setValue',id:r.id,config:a.config,valueIndex:-1,type:3,value:r.target||''});r.changed=false;r.hasTarget=!!(r.target&&r.target.trim());}
+  catch(e){alertBox('写入失败',(r.name||'')+'：'+e.message);return;}
+ }
+ if(list.length){a.dirty=true;arscTouch(a);toast('已写入 '+list.length+' 条译文');}
 }
 async function arscTranslateRender(){
   const a=state.arscTranslate;if(!a)return;
-  const r=await rpc('arscTranslate',{session:a.session,config:a.config,offset:a.offset,limit:a.limit,query:a.query});
-  a.rows=r.rows||[];a.total=r.total||0;a.configs=r.configs||a.configs;
-  header('翻译模式',a.name,[{icon:'back',label:'退出翻译',run:arscTranslateBack},{icon:'text',label:'翻译全部',run:arscTranslateAll},{icon:'save',label:'保存资源表',run:arscTranslateSave},{icon:'more',label:'更多',run:()=>menu([{icon:'refresh',label:'重新加载',run:()=>act(arscTranslateRender)},{icon:'close',label:'退出',run:arscTranslateBack}])}],true);
-  $('#subbar').innerHTML='';$('#bottom').innerHTML='';
-  $('#content').innerHTML=`<div class="toolpage">
-    <div class="sectionLabel">目标语言</div>
-    <div class="searchline"><select id="arscTransConfig" style="flex:1;background:transparent;color:var(--text);border:0;padding:10px 0">${a.configs.map(c=>`<option value="${esc(c.qualifiers)}" ${c.qualifiers===a.config?'selected':''}>${esc(c.label)}${c.qualifiers?' ('+esc(c.qualifiers)+')':'（源语言）'}</option>`).join('')}</select><button id="arscTransNew">新建语言</button></div>
-    <div class="searchline"><input id="arscTransSearch" placeholder="筛选资源名或文本…" value="${esc(a.query)}"><button id="arscTransGo">搜索</button></div>
-    <div id="arscTransRows"></div></div>`;
-  const rows=$('#arscTransRows');
-  rows.innerHTML=`<div class="sectionLabel"><span>字符串</span><span class="pill">${a.total}</span></div>`;
-  if(!a.rows.length)rows.insertAdjacentHTML('beforeend','<div class="empty">没有可翻译的字符串</div>');
-  for(const e of a.rows){
-    const b=document.createElement('button');b.className='listrow';
-    b.innerHTML=`<span class="main">${esc(e.name||'(未命名)')}<small>${arscHex(e.id)} · 源：${esc(e.source||'(空)')}</small><small>译：${esc(e.target||'（未翻译）')}</small></span><span class="pill">${e.hasTarget?'已译':'缺失'}</span>`;
-    b.onclick=()=>act(()=>arscTranslateEdit(e));rows.append(b);
+  const strings=a.level==='strings';
+  const r=await rpc('arscTranslate',{session:a.session,config:strings?a.config:'',offset:0,limit:strings?2000:1,query:strings?a.query:''});
+  a.configs=r.configs||a.configs;
+  if(strings){
+   const fresh=r.rows||[];
+   const old={};for(const o of (a.rows||[]))if(o.changed)old[o.id]=o;
+   for(const f of fresh){const o=old[f.id];if(o){f.target=o.target;f.changed=true;}}
+   a.rows=fresh;a.total=r.total||fresh.length;
   }
-  arscPager(rows,a.total,a);
-  $('#arscTransConfig').onchange=e=>act(async()=>{a.config=e.target.value;a.offset=0;await arscTranslateRender();});
-  $('#arscTransNew').onclick=()=>act(arscTranslateNew);
-  const go=()=>act(async()=>{a.query=$('#arscTransSearch').value.trim();a.offset=0;await arscTranslateRender();});
-  $('#arscTransGo').onclick=go;$('#arscTransSearch').onkeydown=e=>{if(e.key==='Enter')go();};
+  if(!strings){
+   header('ARSC翻译',a.name,[{icon:'back',label:'退出翻译',run:arscTranslateBack},{icon:'save',label:'保存资源表',run:arscTranslateSave},{icon:'more',label:'更多',run:()=>menu([{icon:'plus',label:'新建语言',run:arscTranslateNew},{icon:'refresh',label:'重新加载',run:()=>act(arscTranslateRender)},{icon:'close',label:'退出',run:arscTranslateBack}])}],true);
+   $('#subbar').innerHTML='';$('#bottom').innerHTML='';
+   $('#content').innerHTML='<div class="toolpage"><div id="arscTransLangs"></div></div>';
+   const langs=$('#arscTransLangs');
+   if(!a.configs.length)langs.innerHTML='<div class="empty">没有语言配置</div>';
+   for(const c of a.configs){
+    const b=document.createElement('button');b.className='listrow';
+    b.innerHTML='<span class="main">'+esc(arscTranslateLabel(c))+'<small>'+(c.qualifiers?'点按编辑此语言的翻译':'默认（源语言）配置')+'</small></span><span class="pill">›</span>';
+    b.onclick=()=>act(async()=>{a.config=c.qualifiers;a.level='strings';a.offset=0;a.query='';a.sel=new Set();a.multi=false;a.rangeOn=false;a.anchor=null;if(!translateLanguages.length)await loadTranslateConfig().catch(()=>{});a.lang=arscLanguageKey(c.qualifiers);await arscTranslateRender();});
+    langs.append(b);
+   }
+   return;
+  }
+  const done=(a.rows||[]).filter(x=>x.target&&x.target.trim()).length;
+  header('string-'+(a.config||'[DEFAULT]'),(a.sel&&a.sel.size?a.sel.size+' 已选 / ':'')+done+'/'+a.total,[{icon:'back',label:'返回语言列表',run:arscTranslateBackStrings},{icon:'save',label:'保存译文',run:arscTlSave},{icon:'more',label:'菜单',run:arscTlMenu}],true);
+  $('#subbar').innerHTML='';
+  const mb=iconButton(a.multi?'close':'plus',a.multi?'退出多选':'多选',arscTlToggleMulti),rb=iconButton(a.rangeOn?'close':'swap',a.rangeOn?'退出连选':'连选',arscTlToggleRange);
+  if(a.multi)mb.classList.add('on');if(a.rangeOn)rb.classList.add('on');
+  $('#bottom').replaceChildren(iconButton('check','全选',arscTlSelectAll),iconButton('switch','反选',arscTlInvertSel),mb,iconButton('wenA','翻译',arscTlTranslateDialog),rb);
+  $('#content').innerHTML='<div class="toolpage dexTlPage"><div class="searchline"><input id="arscTlQuery" placeholder="过滤原文或译文…" value="'+esc(a.query)+'"><button id="arscTlGo">过滤</button></div><table class="dexTlTable"><tbody id="arscTlRows"></tbody></table></div>';
+  const box=$('#arscTlRows');
+  const pairs=arscTlPairs();
+  if(!pairs.length)box.insertAdjacentHTML('beforeend','<tr><td colspan="2" class="empty">没有匹配的字符串</td></tr>');
+  for(const e of pairs){
+   const row=document.createElement('tr');
+   if(a.sel&&a.sel.has(e))row.classList.add('tlSel');
+   row.innerHTML='<td class="tlSource">'+esc(e.source||'(空)')+'</td><td class="tlTargetCell"><input class="tlTarget" value="'+esc(e.target||'')+'" placeholder="（未翻译）" spellcheck="false" autocapitalize="off"></td>';
+   const input=row.querySelector('input');
+   input.oninput=()=>{e.target=input.value;e.changed=true;};
+   input.onblur=()=>{if(e.changed)act(arscTlFlush);};
+   row.querySelector('.tlSource').onclick=()=>arscTlRowTap(e);
+   box.append(row);
+  }
+  const go=()=>act(async()=>{a.query=$('#arscTlQuery').value.trim();a.sel=new Set();await arscTranslateRender();});
+  $('#arscTlGo').onclick=go;$('#arscTlQuery').onkeydown=e=>{if(e.key==='Enter')go();};
 }
-async function arscTranslateEdit(e){
-  const a=state.arscTranslate;
-  const body=`<p class="break">${esc(e.name||'')} · ${arscHex(e.id)}</p><label>源文本</label><div class="arscSourceText">${esc(e.source||'')}</div><label>译文（${esc(a.config||'默认')}）</label><textarea id="arscTransText" class="toolinput" rows="4">${esc(e.target||'')}</textarea>`;
-  const d=dialog('编辑翻译',body,[['取消',closeModal],['保存',async()=>{
-    const v=$('#arscTransText').value;
-    await rpc('arscEdit',{session:a.session,op:'setValue',id:e.id,config:a.config,valueIndex:-1,type:3,value:v});
-    a.dirty=true;arscTouch(a);closeModal();toast('译文已更新');await arscTranslateRender();
-  }]]);
+function arscTlRowTap(e){
+ const a=state.arscTranslate;if(!a)return;
+ if(!a.multi&&!a.rangeOn)return act(()=>arscTlEdit(e));
+ const p=arscTlPairs();
+ if(a.rangeOn){
+  if(a.anchor==null){a.anchor=p.indexOf(e);a.sel=new Set([e]);}
+  else{const b=p.indexOf(e);if(b<0)return;const lo=Math.min(a.anchor,b),hi=Math.max(a.anchor,b);a.sel=new Set(p.slice(lo,hi+1));a.anchor=null;toast('已选中 '+(hi-lo+1)+' 条');}
+ }else{if(a.sel.has(e))a.sel.delete(e);else a.sel.add(e);}
+ act(arscTranslateRender);
+}
+function arscTlSelectAll(){const a=state.arscTranslate;if(!a)return;a.sel=new Set(arscTlPairs());act(arscTranslateRender);}
+function arscTlInvertSel(){const a=state.arscTranslate;if(!a)return;const n=new Set();for(const e of arscTlPairs())if(!a.sel.has(e))n.add(e);a.sel=n;act(arscTranslateRender);}
+function arscTlToggleMulti(){const a=state.arscTranslate;if(!a)return;a.multi=!a.multi;if(a.multi)a.rangeOn=false;a.anchor=null;act(arscTranslateRender);toast(a.multi?'多选已开启：点原文选择/取消，＋变 ×':'多选已关闭');}
+function arscTlToggleRange(){const a=state.arscTranslate;if(!a)return;a.rangeOn=!a.rangeOn;if(a.rangeOn)a.multi=false;a.anchor=null;act(arscTranslateRender);toast(a.rangeOn?'连选已开启：点第一项再点第二项，选中其之间全部':'连选已关闭');}
+function arscTlMenu(){const a=state.arscTranslate;if(!a)return;menu([
+ {icon:'settings',label:'翻译服务',run:()=>act(translatePage)},
+ {icon:'save',label:'保存译文',run:arscTlSave},
+ {icon:'save',label:'保存资源表',run:arscTranslateSave},
+ {icon:'check',label:'检查',run:arscTlCheck},
+ {icon:'back',label:'返回语言列表',run:arscTranslateBackStrings},
+ {icon:'close',label:'退出',run:arscTranslateBack}]);}
+async function arscTlSave(){await arscTlFlush();}
+async function arscTlCheck(){
+ const a=state.arscTranslate;if(!a)return;
+ const total=a.rows.length,translated=a.rows.filter(r=>r.target&&r.target.trim()).length;
+ alertBox('翻译检查','总词条：'+total+'\n已翻译：'+translated+'\n未翻译：'+(total-translated)+(a.dirty?'\n\n有未保存的译文，记得「保存译文 / 保存资源表」。':''));
+}
+async function arscTlEdit(e){
+ const a=state.arscTranslate;
+ const body='<label>原文</label><pre class="diffText">'+esc(e.source||'')+'</pre><label>译文（'+esc(a.config||'默认')+'）</label><textarea id="arscTlText" rows="4" spellcheck="false">'+esc(e.target||'')+'</textarea>';
+ const d=dialog('编辑翻译',body,[['取消',closeModal],['保存',()=>{e.target=d.querySelector('#arscTlText').value;e.changed=true;closeModal();act(async()=>{await arscTlFlush();arscTranslateRender();});}]]);
  const actions=d.querySelector('.actions'),btn=document.createElement('button');
  btn.textContent='翻译';
- btn.onclick=()=>act(async()=>{const input=$('#arscTransText');if(!input)return;btn.disabled=true;btn.textContent='翻译中…';try{const r=await translateText(e.source||'',arscLanguageKey(a.config));if(r)input.value=r;else toast('翻译结果为空');}catch(error){alertBox('无法完成',error.message);}finally{btn.disabled=false;btn.textContent='翻译';}});
+ btn.onclick=()=>act(async()=>{const input=d.querySelector('#arscTlText');btn.disabled=true;btn.textContent='翻译中…';try{const text=await translateText(e.source||'',a.lang);if(text)input.value=text;else toast('翻译结果为空');}catch(error){alertBox('无法完成',error.message);}finally{btn.disabled=false;btn.textContent='翻译';}});
  actions.insertBefore(btn,actions.firstChild);
+ setTimeout(()=>{const ta=d.querySelector('textarea');if(ta&&ta.isConnected){ta.focus();ta.setSelectionRange(0,0);}},30);
+}
+async function arscTlTranslateDialog(){
+ const a=state.arscTranslate;if(!a)return;
+ if(!translateLanguages.length)await loadTranslateConfig().catch(()=>{});
+ const c=translateConfig||{};
+ const langs=(translateLanguages||[]).length?translateLanguages:[{key:'en',name:'英语'},{key:'zh',name:'中文'},{key:'ja',name:'日语'}];
+ const scopeSel=a.sel&&a.sel.size;
+ const selStyle='style="flex:1;background:transparent;color:var(--text);border:0;padding:10px 0"';
+ const body='<label>翻译引擎</label><div class="searchline"><select id="arscTlEngine" '+selStyle+'>'+TRANSLATE_PROVIDERS.map(x=>'<option value="'+x[0]+'"'+(x[0]===(c.provider||'tencent')?' selected':'')+'>'+esc(x[1])+'</option>').join('')+'</select></div>'
+  +'<label>源语言</label><div class="searchline"><select disabled '+selStyle+'><option>自动检测</option></select></div>'
+  +'<label>翻译为</label><div class="searchline"><select id="arscTlTo" '+selStyle+'>'+langs.map(l=>'<option value="'+esc(l.key)+'"'+(l.key===a.lang?' selected':'')+'>'+esc(l.name)+'</option>').join('')+'</select></div>'
+  +'<label class="toggleRow"><span>跳过已翻译词条</span><input id="arscTlSkip" type="checkbox" checked></label>'
+  +'<p class="bundleHint">译文将写入 '+esc(a.config||'[DEFAULT]')+' 配置。'+(scopeSel?('将对已选中的 '+a.sel.size+' 条执行翻译。'):'未选中词条时将翻译全部。')+'</p>';
+ const d=dialog('自动翻译',body,[['取消',closeModal],['确认',()=>{
+  const engine=d.querySelector('#arscTlEngine').value,to=d.querySelector('#arscTlTo').value,skip=d.querySelector('#arscTlSkip').checked;
+  closeModal();
+  act(async()=>{
+   await rpc('translateConfig',{op:'set',provider:engine,target:to});
+   await loadTranslateConfig();
+   a.lang=to;
+   let base=scopeSel?[...a.sel]:a.rows;
+   if(skip)base=base.filter(e=>!(e.target&&e.target.trim()));
+   const list=base.filter(e=>e.source&&e.source.trim());
+   if(!list.length)return toast(skip?'没有未翻译的词条。':'没有可翻译的词条。');
+   await arscTlRunQuiet(list);
+  });
+ }]]);
+ const actions=d.querySelector('.actions'),btn=document.createElement('button');
+ btn.textContent='引擎设置';
+ btn.onclick=()=>{const engine=d.querySelector('#arscTlEngine').value;act(()=>dexTlEngineSettings(engine));};
+ actions.insertBefore(btn,actions.firstChild);
+}
+async function arscTlRunQuiet(list){
+ const a=state.arscTranslate;if(!a)return;
+ let done=0,fail=0,lastErr='';
+ for(const e of list){
+  try{const text=await translateText(e.source,a.lang);if(!text)throw Error('空');e.target=text;e.changed=true;done++;}
+  catch(error){fail++;lastErr=error.message||'';}
+ }
+ a.sel=new Set();a.anchor=null;a.multi=false;a.rangeOn=false;
+ await arscTlFlush();
+ await arscTranslateRender();
+ if(!done&&fail&&lastErr)alertBox('翻译失败',lastErr);
+ else toast('已翻译 '+done+' 条'+(fail?'，失败 '+fail+' 条':''));
 }
 async function arscLanguageKey(qualifier){
  const raw=String(qualifier||''),base=raw.split('-')[0].toLowerCase();
@@ -1577,28 +1682,11 @@ async function arscLanguageKey(qualifier){
  if(base==='zh'&&/hant|tw|hk|mo/.test(raw.toLowerCase()))return 'zhTW';
  return base||'en';
 }
-async function arscTranslateAll(){
- const a=state.arscTranslate;if(!a)return;
- const rows=(a.rows||[]).filter(r=>r.source&&!r.hasTarget);
- if(!rows.length)return toast('没有需要翻译的字符串。');
- if(!await confirmBox('批量翻译？',`将翻译 ${rows.length} 条字符串并写入 ${a.config||'默认'} 配置。`,'翻译'))return;
- let done=0,fail=0;
- for(const row of rows){
-  try{
-   const text=await translateText(row.source,arscLanguageKey(a.config));
-   if(!text)throw Error('返回为空');
-   await rpc('arscEdit',{session:a.session,op:'setValue',id:row.id,config:a.config,valueIndex:-1,type:3,value:text});
-   done++;
-  }catch(error){fail++;}
- }
- a.dirty=true;arscTouch(a);await arscTranslateRender();
- toast('已翻译 '+done+' 条'+(fail?'，失败 '+fail+' 条':''));
-}
 async function arscTranslateNew(){
   const a=state.arscTranslate;
   const q=await ask('新建语言','','语言配置限定符，例如 en-rUS、zh-rCN、ja');if(q===null||!q.trim())return;
   const r=await rpc('arscTranslateAdd',{session:a.session,qualifiers:q.trim()});
-  a.dirty=true;arscTouch(a);a.config=r.qualifiers;a.offset=0;toast('已复制 '+r.count+' 条源字符串');await arscTranslateRender();
+  a.dirty=true;arscTouch(a);a.config=r.qualifiers;a.level='strings';a.offset=0;a.sel=new Set();a.multi=false;a.rangeOn=false;a.anchor=null;a.lang=arscLanguageKey(r.qualifiers);toast('已复制 '+r.count+' 条源字符串');await arscTranslateRender();
 }
 async function arscTranslateSave(){
   const a=state.arscTranslate;const r=await rpc('arscSave',{session:a.session});a.dirty=false;
@@ -4249,8 +4337,8 @@ function translateButton(onResult){
 
 function moreTools(){options('更多工具',[{icon:'apk',label:'检查本应用的 APK',run:()=>showApk({path:state.info.ownApk})},{icon:'settings',label:'设置',run:preferences},{icon:'phone',label:'存储权限',run:()=>rpc('permission')},{icon:'info',label:'用户指南',run:guide},{icon:'info',label:'关于赛博中枢管家',run:about}]);}
 function guide(){alertBox('用户指南','文件：轻点打开；长按打开文件操作菜单，「打开方式…」提供内置功能（文本、压缩包、图片、十六进制、音视频、XML / DEX / ARSC / APK / APKS、脚本，不匹配的项置灰）与外部应用选择（系统建议 / 文本 / 图片 / 视频 / 音频按类型筛选，可搜索）；菜单中的菜单中的「工具」提供文件分割/合并、GPG 加密/解密、交换文件名、创建软链接、创建快捷方式与导出文件列表（不满足条件的项会置灰）。使用 + 新建或粘贴。轻点图片/视频/音频直接用内置播放器打开：视频支持长按 2×/3× 倍速快进、左半屏上下滑动调亮度、右半屏上下滑动调音量；文件夹菜单中的「照片浏览」可按网格浏览当前文件夹的图片。底部按键栏上滑可打开「最近 / 书签」快速访问面板（过滤、分组、高度可调）；轻点顶部路径栏弹出「跳转」对话框（粘贴/取消/确定）。长按菜单为：复制、移动、删除、重命名、工具、压缩、属性、分享、打开方式、添加书签——带 • 的「复制/移动」长按可触发单窗口操作。\n\nGPG 加密生成标准 OpenPGP 文件：口令方式直接输入口令；公钥方式填写接收方公钥（.asc/.gpg）。输出 .gpg 或 .asc，可用桌面 GnuPG 或本应用解密。\n\nAPK → 查看 → classes.dex。打开一个类；编辑 Smali 或使用 查看 Java。Java 可直接编辑。保存 会将代码编译进临时 DEX 工程。返回 同样会编译未保存的代码；出现错误时编辑器保持打开。\n\n编辑器/DEX 菜单 → 保存并签名 APK 会写回源文件，保留备份，并校验 V1/V2/V3 后再提供 安装。保存工程 只写入未签名的更改。导出 生成一份独立副本。\n\n并非每个反编译出的 Java 文件都是有效源码。请修正编译错误或改用 Smali 编辑。包名/类名请勿修改。\n\n捏合可调整代码大小。文字大小 / 缩放 提供按钮、滑块和 重置。查找替换 直接编辑当前缓冲区，并支持 撤销。\n\n签名使用公开的开发证书。Android 权限与安装规则依然适用。');}
-function about(){closeDrawer();options('赛博中枢管家 · 0.1.37',[{icon:'phone',label:'用户信息（本地）',run:async()=>{const name=await ask('本地用户名',storage.get('cyber-name')||'赛博中枢');if(name!==null){storage.set('cyber-name',name);toast('资料已更新');}}},{icon:'info',label:'用户指南',run:guide},{icon:'history',label:'版本说明',run:()=>alertBox('版本 0.1.37','0.1.37：自动翻译对话框「引擎设置」改为按引擎弹出的凭据配置对话框（参考 MT 截图）——标题为所选引擎名（如「百度翻译」），下方列出该引擎的密钥输入框（百度为 APP ID 与 KEY，已回填现有值），底部按钮 申请地址 / 取消 / 确认：申请地址在浏览器打开对应云控制台的密钥申请页（腾讯 API 密钥、百度翻译开放平台、阿里云 RAM、火山引擎 IAM、微软 Azure），确认即保存并立即可用。\n\n0.1.36：文件列表「更多选项」菜单按 MT 截图重排为十二项——刷新、搜索、全选、过滤（仅文件夹/仅文件）、排序方式（名称/大小/时间/类型 + 升降序）、打开终端、隐藏文件、添加书签（书签当前文件夹）、设为首页（记住目录，下次启动直达）、交换窗口、设置、退出；原「添加远程存储/照片浏览/书签列表/跳转到路径/关于」已移出该菜单。\n\n0.1.35：翻译服务入口从侧边栏工具列表移除，统一收敛到 DEX 翻译模式的「文A」快捷键——点底部「翻译（文A）」弹出自动翻译对话框，对话框内「引擎设置」即可进入翻译服务配置页；右上 ⋮ 菜单中的「翻译服务」也保留。\n\n0.1.34：翻译快捷键图标改为「文A」翻译图标（原 T 形）——DEX 文件菜单「翻译模式」、翻译模式顶部「翻译全部」与底部「翻译」键均使用新图标；点底部「翻译」仍弹出自动翻译对话框。\n\n0.1.33：DEX 翻译模式点击底部「翻译」改为弹出「自动翻译」对话框（参考 MT 截图）——翻译引擎下拉（腾讯/百度/阿里云/火山/微软/AI）、源语言自动检测、翻译为目标语言下拉、「跳过已翻译词条」勾选（默认开启）；按钮为 引擎设置 / 取消 / 确认，确认后先保存引擎与目标语言再执行翻译（有选择时只译所选，否则译全部）；全部失败时弹窗显示具体错误。\n\n0.1.32：修复 DEX 翻译模式退出导航——点「退出」或系统返回键现在直接回到文件列表，不再落回 Dex 编辑器 Plus；工程若有未保存修改仍会先确认。\n\n0.1.31：DEX 翻译模式底部五键改为选择操作——全选、反选、多选（＋，开启后点原文行选择/取消，图标变 ×）、翻译（只翻译所选未译词条，未选择时提示先选择）、连选（开启后点第一项再点第二项，自动选中两者之间全部条目）；选中行左侧蓝色竖条高亮，标题栏显示已选数量；原「检查/保存到字典/添加词条/过滤」仍在右上 ⋮ 菜单中。\n\n0.1.30：翻译服务新增阿里云翻译与火山引擎翻译两家机器翻译——阿里云填 AccessKey ID + AccessKey Secret（通用版 TranslateGeneral），火山引擎填 AccessKey ID + Secret Access Key（文本翻译 Translate，区域 cn-north-1）；配置页服务下拉新增两项，保存后可用「测试翻译」验证。\n\n0.1.29：修复腾讯云翻译配置——项目 ID 改为可留空（默认项目 0，不再强制填写），地域留空自动使用 ap-guangzhou（Region 为接口必填参数，此前留空会导致报 MissingParameter）；已用真实 SecretId/SecretKey 实测接口连通（签名通过，密钥有效）。\n\n0.1.28：DEX 翻译模式底部五个快捷键按 MT 参考截图重排——选择(检查)、复制(保存到字典)、添加词条、翻译(翻译全部)、列表(过滤)；语言选择移入右上 ⋮ 菜单。\n\n0.1.27：DEX 翻译模式按 MT 参考截图还原双栏布局——左栏白底显示原文，右栏整列灰底为译文编辑区（直接点按输入），行间横向分隔线、无表头、行高充足，两列严格等宽；深浅主题均保持对比。\n\n0.1.26：DEX 翻译模式改为线条画的表格——真正的两列表格（原文 / 译文），顶部表头行带下划线，每行横向分隔线，译文列虚线占位「（未翻译）」，聚焦时虚线变蓝；表格等宽两列、行高紧凑，与参考截图一致；修复此前列表行过高、译文输入框不可见的问题。\n\n0.1.25：修复翻译服务并调整入口——修复翻译服务页「目标语言」下拉为空、DEX/ARSC 翻译页语言列表失效的问题（后端返回的语言数据解析方式错误）；修复「测试翻译」误把 auto 当目标语言导致必定报「不支持的目标语言」的问题，现在使用已保存的目标语言；入口更直接：XML 翻译弹窗在未配置翻译服务时新增「前往配置翻译服务」按钮直达设置页，DEX 翻译模式右上 ⋮ 菜单新增「翻译服务」项，可随时跳转配置、关闭工具页即返回原页面。\n\nDEX 翻译模式改版（参考截图）：点 DEX 文件 → 翻译模式进入专用双语对照页——标题「翻译模式 (已译/总数)」，左侧原文、右侧译文输入框直接编辑；右上 ⋮ 菜单八项：保存、保存到字典、字典管理、过滤、替换、检查、语言、退出；底部功能键：过滤、添加词条、语言、保存到字典、检查；支持逐条/全部自动翻译（翻译服务）、字典自动回填相同原文、译文写回工程（保存工程后生效）。\n\n0.1.23：点击压缩包直接进入浏览：zip/7z/tar/tar.gz/tar.xz/tar.zst/tar.bz2/tar.lz4/gz 均可像文件夹一样点进去逐级查看（与截图二一致），不再直接弹「解压到…」；压缩包内文件可打开（文本/图片等会解出临时副本），长按菜单仍保留「解压到…」；分卷（.001）点击仍是解压对话框。原生侧新增通用归档目录列出与条目读取（zip4j + Commons Compress），此前仅 zip 支持浏览。\n\n0.1.22：视频播放器整体移植自 MP-Manager（Apache-2.0）：原生 MediaPlayer + SurfaceView 播放器界面，点视频文件直接进入；双击左 1/3 快退 10 秒、右 1/3 快进 10 秒、中间暂停/继续；水平拖动快进快退（带时间提示）；倍速调节（0.25×–4×）、音量滑杆、AB 循环（设 A/设 B/清除）、屏幕锁定、画幅切换（适应/填充/16:9/4:3 循环）、播放队列（自动载入同目录视频，按文件名排序，可从队列切换）；断点续播（暂停时记忆位置，重进接着播）；支持 srt/vtt/ass/ssa/sub 外挂字幕自动加载与手动选择，内嵌字幕轨道也可显示。文件列表点视频现在走此原生播放器，不再使用 WebView 内置播放器（音频仍用内置播放器）。\n\n0.1.21：修复本地视频打开卡在「正在打开…」的问题：部分 WebView 或编码下 loadedmetadata/error 事件都不触发，现在 canplay/playing 也会关闭加载提示；12 秒未就绪显示「用系统播放器打开」按钮、30 秒自动回退系统播放器，永不卡死；原生 /media/ 流媒体补上 HEAD 请求处理（此前返回 404 可能导致视频栈一直等待）。\n\n0.1.20：文件列表媒体预览：照片与视频的图标直接显示缩略图预览（照片解码缩放、视频提取首帧），滚动到可视区域才加载，带缓存不重复解码；视频缩略图右下角带播放角标；无法解码的格式（如部分 RAW）自动回退普通图标。\n\n0.1.19：快速访问面板改版（参考截图）：「最近 / 书签」标签移至左上角、激活标签带蓝色下划线，右上角保留菜单；移除顶部拖动把手；条目图标改为大号圆角方块样式；点击面板上方空白区域或底部新增的下拉箭头即可直接关闭面板。\n\n0.1.18：快速访问面板修复：面板在 0.1.17 中错误地收缩为内容宽度（两侧留空），现恢复全宽贴底；同时严格限制面板不超过屏幕宽度（上限 560px），超长文件名与路径显示省略号，修复超长路径把面板撑出屏幕、左侧文字被裁的问题。\n\n0.1.17：快速访问面板改为从底部弹出（此前错误地贴着屏幕顶部）。\n\n底栏上滑与顶部路径（参考 MP-Manager）：上滑超过阈值即确认为滑动并吞掉按钮合成点击，修复上滑误触「上级目录」导致顶部路径跳变；顶部路径过长时改为跑马灯滚动完整展示，不再截断为 …xxx；触碰另一窗格立即完整刷新路径与统计。\n\n修复：底栏五个快捷键上滑打开快速访问（补上 touch-action，手势不再被页面滚动吞掉）；内置视频/音频播放器改经同源 HTTPS（/media/）供流，修复因混合内容策略导致视频直接回退系统播放器的问题；左右切换文件窗格时顶部路径即时刷新；播放器内禁用长按文本选择。\n\n内置媒体播放器：轻点图片/视频/音频文件直接在应用内打开；图片查看器移除了「用其他应用打开」按钮；视频播放器支持长按 2×/3× 倍速快进、右半屏上下滑动调节音量、左半屏上下滑动调节亮度（音量与亮度会记忆）、拖动进度条跳转，轻点显示/隐藏控制；音频同样内置播放（轻点播放/暂停）。媒体经仅监听 127.0.0.1 的本地流媒体服务（支持 HTTP Range 断点续流）送入 WebView；无法解码的冷门格式自动回退系统播放器，仍失败可用「打开方式」。支持格式大幅扩充：图片含 ico/tiff/dng 与各品牌 RAW，视频含 mkv/ts/m2ts/flv/rmvb/asf/vob 等 30 余种，音频含 flac/opus/ape/ac3/dts/amr/mka 等 30 余种。\n\n长按菜单重构：与参考截图一致——复制、移动、删除、重命名、工具、压缩、属性、分享、打开方式、添加书签 十项竖排列表；移除「预览图片/播放视频/播放音频/用其他应用打开」（轻点文件即可预览）；带 • 的「复制/移动」可长按触发单窗口操作（先入队再选目标粘贴），提示语同步更新；归档文件保留「解压到…」。\n\n快速访问：底部五个快捷键上滑打开「最近 / 书签」面板；最近记录可关闭/清空，书签支持分组；面板菜单提供 过滤、添加分组、调整高度（30–90% 实时预览）、手势说明、开启记录、清空记录；轻点条目直接打开。\n\n跳转：轻点顶部路径栏（或文件菜单 → 跳转到路径）弹出「跳转」对话框：路径输入框 + 粘贴（读取系统剪贴板）/取消/确定。\n\n——以下为此前版本更新——\n\n打开方式重构：长按文件 →「打开方式…」改为与参考截图一致的 MT 风格对话框——顶部「打开方式…」标题带搜索（放大镜）与帮助（问号）按钮；下方为「内置 / 系统建议 / 文本 / 图片 / 视频 / 音频」标签页（按文件类型动态显示媒体标签，远程存储仅显示「内置」）。「内置」页为三列彩色圆角图标网格：编辑文本、浏览压缩包、查看图片、十六进制、播放音乐、播放视频、XML 功能、DEX 功能、ARSC 功能、APK 信息、APKS 功能、Linux 脚本（.sh/.bash 自动在终端执行），与当前文件类型不匹配的项自动置灰。「系统建议 / 文本 / 图片 / 视频 / 音频」页通过系统 PackageManager 查询可处理该文件（或对应 MIME 类型）的外部应用，显示真实应用图标（PNG）与名称，轻点即用所选应用显式打开（经 FileProvider 授权，压缩包内的文件会先解出临时副本）；右上角放大镜可搜索当前页条目，右下角「关闭」按钮关闭对话框。新增配套的「十六进制查看器」工具页（分页浏览、首页 / 上一页 / 下一页 / 末页、支持 0x 十六进制或十进制跳转偏移）。\n\n长按工具箱：长按文件 →「工具」新增 8 项文件工具：文件分割（自定义字节分卷，输出 原名.part01、.part02…）、文件合并（自动收集同文件夹全部同名分卷按序合并）、GPG 加密 / GPG 解密（标准 OpenPGP，AES-256 + 完整性保护；支持口令（对称）与公钥两种方式，输出 .gpg 或 ASCII 装甲 .asc，桌面 GnuPG（gpg -d）可直接解密，桌面 GnuPG 加密的文件也可在本应用解密）、交换文件名（同文件夹内两个文件互换名称）、创建软链接（可放入另一窗格文件夹）、创建快捷方式（固定到桌面，轻点直达本应用内该文件/文件夹）、导出文件列表（当前文件夹清单导出为文本）。不满足条件的工具项按当前选中数量自动置灰，与截图中的逻辑一致。原「计算 SHA-256 / 复制路径」入口仍可在「属性」与长按菜单中使用。\n\nWebDAV 修复：远程存储的 WebDAV 客户端改用 OkHttp 发送请求，修复 Android 的 HttpURLConnection 拒绝 PROPFIND、MKCOL、MOVE 等自定义方法而导致无法读取目录、新建文件夹和重命名的问题。已在 Koofr WebDAV 上完成连接、列目录、新建、上传、下载、重命名、删除和清理测试。\n\nSmali 指令查询：侧边栏「工具 → Smali 指令查询」提供 265 条 Dalvik/DEX 指令的离线检索（含 40 条 ODEX/负载项），指令名与格式依据 JADX 内置 dexlib2 Opcode 表补全。支持按 opcode、格式、说明和示例搜索，并可按常用、数据、运算、跳转、数组、字段、方法、返回、ODEX/负载等分类筛选。轻点指令可查看格式、说明和 Smali 示例，并可复制示例。\n\nAPK 提取：侧边栏「工具 → 已安装应用」点击应用后进入提取模式，只显示「提取 APK / 查看 / 安装」，不再显示 APK 签名、优化、共存等功能。提取支持选择目录和文件名。\n\n远程存储：侧边栏「远程存储」分组直接列出已保存的连接；打开后只替换当前一侧文件窗格，另一侧继续浏览本地文件。支持窗格内进入文件夹、上传、下载、新建文件夹、重命名和删除。\n\nRoot / Shizuku 授权：侧边栏「工具」新增授权入口，支持 su 授权弹窗申请与 Shizuku 授权状态管理。授权后浏览根目录或受限目录（如 /data）时，Root 经 su、Shizuku 经 shell 特权实际枚举内容，可看到并进入更多文件夹——与 MT 管理器一致。\n\n根目录修复：Android 10+ 禁止普通应用枚举根目录（SELinux 拒绝 readdir /），导致「无法读取此文件夹」。现回退到内置标准目录清单逐项探测存在性；未授权时 /data 等无权限项仍可见，能否进入取决于系统权限。\n\n屏幕取色：侧边栏「工具」新增屏幕取色——十字准星 + 实时放大镜，对准像素后轻点放大镜上的色值或坐标即复制；支持大小/范围/刷新速度/网格线设置（需授权显示在其他应用上层、通知与屏幕录制）。\n\nAPKS 转换：基座与配置分包合并为已签名、已校验的 APK。bundletool 变体分别选择；独立 APK 保留有效签名。APKS 本身保持不变。Play 资源包与不支持的分发类型会给出清晰的错误提示。\n\n性能与 Java 编辑更新：合成器捏合预览；输入时不再全缓冲区扫描；可复用的菜单动画；独立缩略图队列；可编辑 Java（含 ECJ/DEX 编译与诊断）；可撤销的查找替换；带备份的已校验保存并签名。此处不测量设备帧率。\n\n更早的交互更新：侧边栏溢出与边缘滑动；动画菜单、对话框、行反馈与包展开；编辑器侧选项；Java、Smali、XML 和文本中的捏合缩放（大小分别记忆）。打开侧边栏不会保存未保存的代码。\n\n此前的视频更新：成员/字符串导航；用法、子类与重写搜索；成员/代码/片段复制；行与寄存器工具；带 .bak 备份的保存并退出；还原替换；多选、对比与书签；9 种归档格式（含密码/分卷控制）。保留启动恢复与紧凑布局。\n\n功能：双窗格文件管理器；APK 浏览器、清单编辑器与签名；多 DEX、Smali 与 Java 编辑器；本地文件工具、终端、屏幕取色、Root/Shizuku 授权、FTP/FTPS 以及只读共享/MCP。\n\n为赛博中枢管家独立构建。不包含任何原应用代码。')},{icon:'layers',label:'开源致谢',run:()=>alertBox('开源致谢','JADX (Apache-2.0)\nsmali / baksmali / dexlib2 (BSD-3-Clause)\nCodeMirror 5 (MIT)\nPublic Sans (OFL-1.1) · U.S. Web Design System\nScreenColorPicker (MIT) · Ratul Hasan（屏幕取色组件）\nShizuku API (MIT) · Rikka（Root/Shizuku 授权组件）\nTermux terminal-emulator / terminal-view (GPLv3) · Termux（PTY 终端组件）\nJSch (BSD-3-Clause) · mwiede（SFTP 组件）\njCIFS-ng (LGPL-2.1) · AgNO3（SMB 组件）\nOkHttp (Apache-2.0) · Square（WebDAV HTTP 组件）\nBouncy Castle (MIT)（jCIFS-ng 依赖）\nBouncy Castle bcpg 1.70 (MIT)（GPG / OpenPGP 加解密组件）\nAndroid apksig (Apache-2.0)\nARSCLib 1.4.0 (Apache-2.0)\nECJ 4.6.1 (EPL-1.0) · AOSP dx (Apache-2.0) · ASM (BSD-3-Clause)\nApache Commons Net (Apache-2.0)\nGuava、Gson、Protobuf、ANTLR 与 SLF4J\n\n依赖版本与许可证说明包含在源码包中。')}]);}
-window.goBack=async()=>{if(playerState){closePlayer();return;}if($('#quickLayer')&&$('#quickLayer').children.length){closeQuick();return;}if(photoState){closePhoto();return;}try{if($('#menuLayer').children.length){closeMenu();return;}if($('#modalLayer').children.length){closeModal();return;}if($('#drawerLayer').children.length){closeDrawer();return;}if($('#settingsLayer')){closeSettings();return;}if(state.screen==='editor'){if(!await canLeave())return;const back=state.editor.returnScreen,kind=state.editor.kind;if(state.disposeEditor)state.disposeEditor();state.cm=null;state.editor=null;$('#content').classList.remove('javaEditor');if(kind==='arsc'){state.screen='tool';await arscRender();return;}if(back==='dex')await renderDex();else await refresh();state.screen=back==='dex'?'dex':'files';if(back!=='dex')renderFiles();return;}if(state.screen==='tool'){if(state.dexTranslate){await dexTranslateExit();return;}if(state.previous==='dex')await renderDex();else{state.screen='files';await refresh();}return;}if(state.screen==='dex'){if(state.dex.tab!=='explorer'){state.dex.tab='explorer';await renderDex();}else await closeDex();return;}if(selectedFiles().length){clearSelection();return;}if(activePane().history.length)await backPane();else if(!activePane().archive&&['/',state.info.home,state.info.workspace].includes(activePane().path))await rpc('exit');else await up();}catch(e){alertBox('无法完成',e.message);}};
+function about(){closeDrawer();options('赛博中枢管家 · 0.1.38',[{icon:'phone',label:'用户信息（本地）',run:async()=>{const name=await ask('本地用户名',storage.get('cyber-name')||'赛博中枢');if(name!==null){storage.set('cyber-name',name);toast('资料已更新');}}},{icon:'info',label:'用户指南',run:guide},{icon:'history',label:'版本说明',run:()=>alertBox('版本 0.1.38','0.1.38：ARSC 翻译模式改版（参考截图）——点 resources.arsc → 翻译模式后先进入「ARSC翻译」语言配置列表页（蓝色标题栏，右侧 保存 与 ⋮ 菜单），列出全部语言配置（如 [DEFAULT]、de（德语）、en（英语）、ja（日语）、zh-rCN（简体中文）），点任一语言进入该语言的字符串翻译列表；返回键 / 返回箭头先回到语言列表，再按一次才退出；新建语言移入 ⋮ 菜单。字符串翻译页完全复用 DEX 翻译模式界面（参考截图）——标题 string-[配置] 加 已译/总数 进度，双栏表格左原文右译文输入框，底部五键 全选/反选/多选/翻译/连选，点翻译弹自动翻译对话框（引擎/源语言自动检测/目标语言/跳过已翻译，含引擎设置），译文点开即写、过滤框即时筛选，⋮ 菜单含 翻译服务/保存译文/保存资源表/检查。\n\n0.1.37：自动翻译对话框「引擎设置」改为按引擎弹出的凭据配置对话框（参考 MT 截图）——标题为所选引擎名（如「百度翻译」），下方列出该引擎的密钥输入框（百度为 APP ID 与 KEY，已回填现有值），底部按钮 申请地址 / 取消 / 确认：申请地址在浏览器打开对应云控制台的密钥申请页（腾讯 API 密钥、百度翻译开放平台、阿里云 RAM、火山引擎 IAM、微软 Azure），确认即保存并立即可用。\n\n0.1.36：文件列表「更多选项」菜单按 MT 截图重排为十二项——刷新、搜索、全选、过滤（仅文件夹/仅文件）、排序方式（名称/大小/时间/类型 + 升降序）、打开终端、隐藏文件、添加书签（书签当前文件夹）、设为首页（记住目录，下次启动直达）、交换窗口、设置、退出；原「添加远程存储/照片浏览/书签列表/跳转到路径/关于」已移出该菜单。\n\n0.1.35：翻译服务入口从侧边栏工具列表移除，统一收敛到 DEX 翻译模式的「文A」快捷键——点底部「翻译（文A）」弹出自动翻译对话框，对话框内「引擎设置」即可进入翻译服务配置页；右上 ⋮ 菜单中的「翻译服务」也保留。\n\n0.1.34：翻译快捷键图标改为「文A」翻译图标（原 T 形）——DEX 文件菜单「翻译模式」、翻译模式顶部「翻译全部」与底部「翻译」键均使用新图标；点底部「翻译」仍弹出自动翻译对话框。\n\n0.1.33：DEX 翻译模式点击底部「翻译」改为弹出「自动翻译」对话框（参考 MT 截图）——翻译引擎下拉（腾讯/百度/阿里云/火山/微软/AI）、源语言自动检测、翻译为目标语言下拉、「跳过已翻译词条」勾选（默认开启）；按钮为 引擎设置 / 取消 / 确认，确认后先保存引擎与目标语言再执行翻译（有选择时只译所选，否则译全部）；全部失败时弹窗显示具体错误。\n\n0.1.32：修复 DEX 翻译模式退出导航——点「退出」或系统返回键现在直接回到文件列表，不再落回 Dex 编辑器 Plus；工程若有未保存修改仍会先确认。\n\n0.1.31：DEX 翻译模式底部五键改为选择操作——全选、反选、多选（＋，开启后点原文行选择/取消，图标变 ×）、翻译（只翻译所选未译词条，未选择时提示先选择）、连选（开启后点第一项再点第二项，自动选中两者之间全部条目）；选中行左侧蓝色竖条高亮，标题栏显示已选数量；原「检查/保存到字典/添加词条/过滤」仍在右上 ⋮ 菜单中。\n\n0.1.30：翻译服务新增阿里云翻译与火山引擎翻译两家机器翻译——阿里云填 AccessKey ID + AccessKey Secret（通用版 TranslateGeneral），火山引擎填 AccessKey ID + Secret Access Key（文本翻译 Translate，区域 cn-north-1）；配置页服务下拉新增两项，保存后可用「测试翻译」验证。\n\n0.1.29：修复腾讯云翻译配置——项目 ID 改为可留空（默认项目 0，不再强制填写），地域留空自动使用 ap-guangzhou（Region 为接口必填参数，此前留空会导致报 MissingParameter）；已用真实 SecretId/SecretKey 实测接口连通（签名通过，密钥有效）。\n\n0.1.28：DEX 翻译模式底部五个快捷键按 MT 参考截图重排——选择(检查)、复制(保存到字典)、添加词条、翻译(翻译全部)、列表(过滤)；语言选择移入右上 ⋮ 菜单。\n\n0.1.27：DEX 翻译模式按 MT 参考截图还原双栏布局——左栏白底显示原文，右栏整列灰底为译文编辑区（直接点按输入），行间横向分隔线、无表头、行高充足，两列严格等宽；深浅主题均保持对比。\n\n0.1.26：DEX 翻译模式改为线条画的表格——真正的两列表格（原文 / 译文），顶部表头行带下划线，每行横向分隔线，译文列虚线占位「（未翻译）」，聚焦时虚线变蓝；表格等宽两列、行高紧凑，与参考截图一致；修复此前列表行过高、译文输入框不可见的问题。\n\n0.1.25：修复翻译服务并调整入口——修复翻译服务页「目标语言」下拉为空、DEX/ARSC 翻译页语言列表失效的问题（后端返回的语言数据解析方式错误）；修复「测试翻译」误把 auto 当目标语言导致必定报「不支持的目标语言」的问题，现在使用已保存的目标语言；入口更直接：XML 翻译弹窗在未配置翻译服务时新增「前往配置翻译服务」按钮直达设置页，DEX 翻译模式右上 ⋮ 菜单新增「翻译服务」项，可随时跳转配置、关闭工具页即返回原页面。\n\nDEX 翻译模式改版（参考截图）：点 DEX 文件 → 翻译模式进入专用双语对照页——标题「翻译模式 (已译/总数)」，左侧原文、右侧译文输入框直接编辑；右上 ⋮ 菜单八项：保存、保存到字典、字典管理、过滤、替换、检查、语言、退出；底部功能键：过滤、添加词条、语言、保存到字典、检查；支持逐条/全部自动翻译（翻译服务）、字典自动回填相同原文、译文写回工程（保存工程后生效）。\n\n0.1.23：点击压缩包直接进入浏览：zip/7z/tar/tar.gz/tar.xz/tar.zst/tar.bz2/tar.lz4/gz 均可像文件夹一样点进去逐级查看（与截图二一致），不再直接弹「解压到…」；压缩包内文件可打开（文本/图片等会解出临时副本），长按菜单仍保留「解压到…」；分卷（.001）点击仍是解压对话框。原生侧新增通用归档目录列出与条目读取（zip4j + Commons Compress），此前仅 zip 支持浏览。\n\n0.1.22：视频播放器整体移植自 MP-Manager（Apache-2.0）：原生 MediaPlayer + SurfaceView 播放器界面，点视频文件直接进入；双击左 1/3 快退 10 秒、右 1/3 快进 10 秒、中间暂停/继续；水平拖动快进快退（带时间提示）；倍速调节（0.25×–4×）、音量滑杆、AB 循环（设 A/设 B/清除）、屏幕锁定、画幅切换（适应/填充/16:9/4:3 循环）、播放队列（自动载入同目录视频，按文件名排序，可从队列切换）；断点续播（暂停时记忆位置，重进接着播）；支持 srt/vtt/ass/ssa/sub 外挂字幕自动加载与手动选择，内嵌字幕轨道也可显示。文件列表点视频现在走此原生播放器，不再使用 WebView 内置播放器（音频仍用内置播放器）。\n\n0.1.21：修复本地视频打开卡在「正在打开…」的问题：部分 WebView 或编码下 loadedmetadata/error 事件都不触发，现在 canplay/playing 也会关闭加载提示；12 秒未就绪显示「用系统播放器打开」按钮、30 秒自动回退系统播放器，永不卡死；原生 /media/ 流媒体补上 HEAD 请求处理（此前返回 404 可能导致视频栈一直等待）。\n\n0.1.20：文件列表媒体预览：照片与视频的图标直接显示缩略图预览（照片解码缩放、视频提取首帧），滚动到可视区域才加载，带缓存不重复解码；视频缩略图右下角带播放角标；无法解码的格式（如部分 RAW）自动回退普通图标。\n\n0.1.19：快速访问面板改版（参考截图）：「最近 / 书签」标签移至左上角、激活标签带蓝色下划线，右上角保留菜单；移除顶部拖动把手；条目图标改为大号圆角方块样式；点击面板上方空白区域或底部新增的下拉箭头即可直接关闭面板。\n\n0.1.18：快速访问面板修复：面板在 0.1.17 中错误地收缩为内容宽度（两侧留空），现恢复全宽贴底；同时严格限制面板不超过屏幕宽度（上限 560px），超长文件名与路径显示省略号，修复超长路径把面板撑出屏幕、左侧文字被裁的问题。\n\n0.1.17：快速访问面板改为从底部弹出（此前错误地贴着屏幕顶部）。\n\n底栏上滑与顶部路径（参考 MP-Manager）：上滑超过阈值即确认为滑动并吞掉按钮合成点击，修复上滑误触「上级目录」导致顶部路径跳变；顶部路径过长时改为跑马灯滚动完整展示，不再截断为 …xxx；触碰另一窗格立即完整刷新路径与统计。\n\n修复：底栏五个快捷键上滑打开快速访问（补上 touch-action，手势不再被页面滚动吞掉）；内置视频/音频播放器改经同源 HTTPS（/media/）供流，修复因混合内容策略导致视频直接回退系统播放器的问题；左右切换文件窗格时顶部路径即时刷新；播放器内禁用长按文本选择。\n\n内置媒体播放器：轻点图片/视频/音频文件直接在应用内打开；图片查看器移除了「用其他应用打开」按钮；视频播放器支持长按 2×/3× 倍速快进、右半屏上下滑动调节音量、左半屏上下滑动调节亮度（音量与亮度会记忆）、拖动进度条跳转，轻点显示/隐藏控制；音频同样内置播放（轻点播放/暂停）。媒体经仅监听 127.0.0.1 的本地流媒体服务（支持 HTTP Range 断点续流）送入 WebView；无法解码的冷门格式自动回退系统播放器，仍失败可用「打开方式」。支持格式大幅扩充：图片含 ico/tiff/dng 与各品牌 RAW，视频含 mkv/ts/m2ts/flv/rmvb/asf/vob 等 30 余种，音频含 flac/opus/ape/ac3/dts/amr/mka 等 30 余种。\n\n长按菜单重构：与参考截图一致——复制、移动、删除、重命名、工具、压缩、属性、分享、打开方式、添加书签 十项竖排列表；移除「预览图片/播放视频/播放音频/用其他应用打开」（轻点文件即可预览）；带 • 的「复制/移动」可长按触发单窗口操作（先入队再选目标粘贴），提示语同步更新；归档文件保留「解压到…」。\n\n快速访问：底部五个快捷键上滑打开「最近 / 书签」面板；最近记录可关闭/清空，书签支持分组；面板菜单提供 过滤、添加分组、调整高度（30–90% 实时预览）、手势说明、开启记录、清空记录；轻点条目直接打开。\n\n跳转：轻点顶部路径栏（或文件菜单 → 跳转到路径）弹出「跳转」对话框：路径输入框 + 粘贴（读取系统剪贴板）/取消/确定。\n\n——以下为此前版本更新——\n\n打开方式重构：长按文件 →「打开方式…」改为与参考截图一致的 MT 风格对话框——顶部「打开方式…」标题带搜索（放大镜）与帮助（问号）按钮；下方为「内置 / 系统建议 / 文本 / 图片 / 视频 / 音频」标签页（按文件类型动态显示媒体标签，远程存储仅显示「内置」）。「内置」页为三列彩色圆角图标网格：编辑文本、浏览压缩包、查看图片、十六进制、播放音乐、播放视频、XML 功能、DEX 功能、ARSC 功能、APK 信息、APKS 功能、Linux 脚本（.sh/.bash 自动在终端执行），与当前文件类型不匹配的项自动置灰。「系统建议 / 文本 / 图片 / 视频 / 音频」页通过系统 PackageManager 查询可处理该文件（或对应 MIME 类型）的外部应用，显示真实应用图标（PNG）与名称，轻点即用所选应用显式打开（经 FileProvider 授权，压缩包内的文件会先解出临时副本）；右上角放大镜可搜索当前页条目，右下角「关闭」按钮关闭对话框。新增配套的「十六进制查看器」工具页（分页浏览、首页 / 上一页 / 下一页 / 末页、支持 0x 十六进制或十进制跳转偏移）。\n\n长按工具箱：长按文件 →「工具」新增 8 项文件工具：文件分割（自定义字节分卷，输出 原名.part01、.part02…）、文件合并（自动收集同文件夹全部同名分卷按序合并）、GPG 加密 / GPG 解密（标准 OpenPGP，AES-256 + 完整性保护；支持口令（对称）与公钥两种方式，输出 .gpg 或 ASCII 装甲 .asc，桌面 GnuPG（gpg -d）可直接解密，桌面 GnuPG 加密的文件也可在本应用解密）、交换文件名（同文件夹内两个文件互换名称）、创建软链接（可放入另一窗格文件夹）、创建快捷方式（固定到桌面，轻点直达本应用内该文件/文件夹）、导出文件列表（当前文件夹清单导出为文本）。不满足条件的工具项按当前选中数量自动置灰，与截图中的逻辑一致。原「计算 SHA-256 / 复制路径」入口仍可在「属性」与长按菜单中使用。\n\nWebDAV 修复：远程存储的 WebDAV 客户端改用 OkHttp 发送请求，修复 Android 的 HttpURLConnection 拒绝 PROPFIND、MKCOL、MOVE 等自定义方法而导致无法读取目录、新建文件夹和重命名的问题。已在 Koofr WebDAV 上完成连接、列目录、新建、上传、下载、重命名、删除和清理测试。\n\nSmali 指令查询：侧边栏「工具 → Smali 指令查询」提供 265 条 Dalvik/DEX 指令的离线检索（含 40 条 ODEX/负载项），指令名与格式依据 JADX 内置 dexlib2 Opcode 表补全。支持按 opcode、格式、说明和示例搜索，并可按常用、数据、运算、跳转、数组、字段、方法、返回、ODEX/负载等分类筛选。轻点指令可查看格式、说明和 Smali 示例，并可复制示例。\n\nAPK 提取：侧边栏「工具 → 已安装应用」点击应用后进入提取模式，只显示「提取 APK / 查看 / 安装」，不再显示 APK 签名、优化、共存等功能。提取支持选择目录和文件名。\n\n远程存储：侧边栏「远程存储」分组直接列出已保存的连接；打开后只替换当前一侧文件窗格，另一侧继续浏览本地文件。支持窗格内进入文件夹、上传、下载、新建文件夹、重命名和删除。\n\nRoot / Shizuku 授权：侧边栏「工具」新增授权入口，支持 su 授权弹窗申请与 Shizuku 授权状态管理。授权后浏览根目录或受限目录（如 /data）时，Root 经 su、Shizuku 经 shell 特权实际枚举内容，可看到并进入更多文件夹——与 MT 管理器一致。\n\n根目录修复：Android 10+ 禁止普通应用枚举根目录（SELinux 拒绝 readdir /），导致「无法读取此文件夹」。现回退到内置标准目录清单逐项探测存在性；未授权时 /data 等无权限项仍可见，能否进入取决于系统权限。\n\n屏幕取色：侧边栏「工具」新增屏幕取色——十字准星 + 实时放大镜，对准像素后轻点放大镜上的色值或坐标即复制；支持大小/范围/刷新速度/网格线设置（需授权显示在其他应用上层、通知与屏幕录制）。\n\nAPKS 转换：基座与配置分包合并为已签名、已校验的 APK。bundletool 变体分别选择；独立 APK 保留有效签名。APKS 本身保持不变。Play 资源包与不支持的分发类型会给出清晰的错误提示。\n\n性能与 Java 编辑更新：合成器捏合预览；输入时不再全缓冲区扫描；可复用的菜单动画；独立缩略图队列；可编辑 Java（含 ECJ/DEX 编译与诊断）；可撤销的查找替换；带备份的已校验保存并签名。此处不测量设备帧率。\n\n更早的交互更新：侧边栏溢出与边缘滑动；动画菜单、对话框、行反馈与包展开；编辑器侧选项；Java、Smali、XML 和文本中的捏合缩放（大小分别记忆）。打开侧边栏不会保存未保存的代码。\n\n此前的视频更新：成员/字符串导航；用法、子类与重写搜索；成员/代码/片段复制；行与寄存器工具；带 .bak 备份的保存并退出；还原替换；多选、对比与书签；9 种归档格式（含密码/分卷控制）。保留启动恢复与紧凑布局。\n\n功能：双窗格文件管理器；APK 浏览器、清单编辑器与签名；多 DEX、Smali 与 Java 编辑器；本地文件工具、终端、屏幕取色、Root/Shizuku 授权、FTP/FTPS 以及只读共享/MCP。\n\n为赛博中枢管家独立构建。不包含任何原应用代码。')},{icon:'layers',label:'开源致谢',run:()=>alertBox('开源致谢','JADX (Apache-2.0)\nsmali / baksmali / dexlib2 (BSD-3-Clause)\nCodeMirror 5 (MIT)\nPublic Sans (OFL-1.1) · U.S. Web Design System\nScreenColorPicker (MIT) · Ratul Hasan（屏幕取色组件）\nShizuku API (MIT) · Rikka（Root/Shizuku 授权组件）\nTermux terminal-emulator / terminal-view (GPLv3) · Termux（PTY 终端组件）\nJSch (BSD-3-Clause) · mwiede（SFTP 组件）\njCIFS-ng (LGPL-2.1) · AgNO3（SMB 组件）\nOkHttp (Apache-2.0) · Square（WebDAV HTTP 组件）\nBouncy Castle (MIT)（jCIFS-ng 依赖）\nBouncy Castle bcpg 1.70 (MIT)（GPG / OpenPGP 加解密组件）\nAndroid apksig (Apache-2.0)\nARSCLib 1.4.0 (Apache-2.0)\nECJ 4.6.1 (EPL-1.0) · AOSP dx (Apache-2.0) · ASM (BSD-3-Clause)\nApache Commons Net (Apache-2.0)\nGuava、Gson、Protobuf、ANTLR 与 SLF4J\n\n依赖版本与许可证说明包含在源码包中。')}]);}
+window.goBack=async()=>{if(playerState){closePlayer();return;}if($('#quickLayer')&&$('#quickLayer').children.length){closeQuick();return;}if(photoState){closePhoto();return;}try{if($('#menuLayer').children.length){closeMenu();return;}if($('#modalLayer').children.length){closeModal();return;}if($('#drawerLayer').children.length){closeDrawer();return;}if($('#settingsLayer')){closeSettings();return;}if(state.screen==='editor'){if(!await canLeave())return;const back=state.editor.returnScreen,kind=state.editor.kind;if(state.disposeEditor)state.disposeEditor();state.cm=null;state.editor=null;$('#content').classList.remove('javaEditor');if(kind==='arsc'){state.screen='tool';await arscRender();return;}if(back==='dex')await renderDex();else await refresh();state.screen=back==='dex'?'dex':'files';if(back!=='dex')renderFiles();return;}if(state.screen==='tool'){if(state.arscTranslate){if(state.arscTranslate.level==='strings')await arscTranslateBackStrings();else await arscTranslateBack();return;}if(state.dexTranslate){await dexTranslateExit();return;}if(state.previous==='dex')await renderDex();else{state.screen='files';await refresh();}return;}if(state.screen==='dex'){if(state.dex.tab!=='explorer'){state.dex.tab='explorer';await renderDex();}else await closeDex();return;}if(selectedFiles().length){clearSelection();return;}if(activePane().history.length)await backPane();else if(!activePane().archive&&['/',state.info.home,state.info.workspace].includes(activePane().path))await rpc('exit');else await up();}catch(e){alertBox('无法完成',e.message);}};
 let initialized=false;window.onNativeResume=()=>{if(initialized)act(async()=>{const old=state.info.permission;state.info=await rpc('init');if(!old&&state.info.permission){state.panes[0].path=state.info.home;state.panes[1].path=state.info.home+'/下载';}if(state.screen==='files')await refresh();});};
 function startPath(value){const base=state.info.permission?state.info.home:state.info.workspace;const home=pref.homePath&&state.info.permission?pref.homePath:base;return {'首页':home,'工作区':state.info.workspace,'根目录':'/','下载':state.info.permission?base+'/下载':base}[value]||home;}
 async function maybeRequestElevated(){try{if(!pref.startRoot&&!pref.startShell)return;const s=await rpc('elevated',{op:'status'});if(pref.startRoot&&!s.rootGranted&&s.rootAvailable)await rpc('elevated',{op:'requestRoot'});if(pref.startShell&&!s.rootGranted&&!s.shizukuGranted&&s.shizukuInstalled&&s.shizukuRunning)await rpc('elevated',{op:'requestShizuku'});}catch(e){}}
