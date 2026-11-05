@@ -1006,6 +1006,10 @@ body.list-large .fileicon.thumbFill .playBadge svg{width:8px;height:8px}
 .dexTlTable input.tlTarget{width:100%;height:44px;background:transparent;color:var(--text);border:0;padding:0 14px;font:inherit;font-size:14px;line-height:20px}
 .dexTlTable input.tlTarget::placeholder{color:var(--muted);opacity:.85}
 .dexTlTable input.tlTarget:focus{outline:0}
+.dexTlTable tr.tlSel td.tlSource{background:var(--active);color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.dexTlTable tr.tlSel td.tlTargetCell{background:var(--raised)}
+#bottom .iconbtn.on{color:var(--accent)}
+#bottom .iconbtn.on:active{background:var(--raised)}
 .dexTlDictList{max-height:50vh;overflow:auto}
 .dexTlDictRow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
 .dexTlDictRow .main{flex:1;min-width:0;word-break:break-all;font-size:13px}
