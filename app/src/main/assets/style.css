@@ -995,3 +995,17 @@ body.list-large .fileicon.thumbFill .playBadge svg{width:8px;height:8px}
 /* 0.1.21 播放器防卡死：超时提示里的回退按钮可点击 */
 .playerLoading{pointer-events:none}
 .playerLoading .playerFallbackBtn{pointer-events:auto;margin-top:8px;padding:6px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-size:13px}
+
+/* 0.1.23 DEX 翻译模式：原文/译文 双列对照 */
+.dexTlHead{display:flex;gap:10px;padding:8px 13px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:1}
+.dexTlHead span{flex:1}
+.dexTlRow{display:flex;gap:10px;align-items:center;padding:7px 13px;border-bottom:1px solid var(--line)}
+.dexTlRow .tlSource{flex:1;min-width:0;word-break:break-all;font-size:13px;line-height:18px;cursor:pointer}
+.dexTlRow input.tlTarget{flex:1;min-width:0;background:transparent;color:var(--text);border:0;border-bottom:1px dashed var(--line);padding:4px 0;font:inherit;font-size:13px}
+.dexTlRow input.tlTarget:focus{border-bottom-color:var(--blue);outline:0}
+.dexTlDictList{max-height:50vh;overflow:auto}
+.dexTlDictRow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
+.dexTlDictRow .main{flex:1;min-width:0;word-break:break-all;font-size:13px}
+.dexTlDictRow .main small{display:block;color:var(--muted)}
+.dexTlDictDel{border:0;background:transparent;color:#d07070;font-size:12px;padding:6px 8px}
+body.light .dexTlDictDel{color:#b04848}
