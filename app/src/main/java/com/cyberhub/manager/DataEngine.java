@@ -13,7 +13,7 @@ public final class DataEngine {
  boolean permission(){return Build.VERSION.SDK_INT>=30?Environment.isExternalStorageManager():activity.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;}
  synchronized Object call(String action,JSONObject a)throws Exception{
   switch(action){
-   case "init":return new JSONObject().put("permission",permission()).put("home",Environment.getExternalStorageDirectory().getPath()).put("workspace",workspace.getPath()).put("version","0.1.18").put("ownApk",activity.getApplicationInfo().sourceDir);
+   case "init":return new JSONObject().put("permission",permission()).put("home",Environment.getExternalStorageDirectory().getPath()).put("workspace",workspace.getPath()).put("version","0.1.40").put("ownApk",activity.getApplicationInfo().sourceDir);
    case "list":return list(a);
    case "disk":{File f=new File(a.getString("path"));return new JSONObject().put("total",f.getTotalSpace()).put("free",f.getUsableSpace());}
    case "exportText":{File f=FileOps.child(new File(a.getString("path")),a.getString("name"));if(f.exists())throw new IOException("输出已存在");FileOps.writeAtomic(f,a.getString("text").getBytes(StandardCharsets.UTF_8),false);record("已导出 "+f);return f.getPath();}
@@ -111,6 +111,11 @@ public final class DataEngine {
    case "dexSearch":return dex.search(a.optString("query"));
    case "apps":return apps();
    case "log":return new JSONArray(activity.getPreferences(0).getString("log","[]"));
+   case "logClear":activity.getPreferences(0).edit().putString("log","[]").apply();return true;
+   case "record":record(a.getString("text"));return true;
+   case "httpGet":return httpGet(a);
+   case "httpDownload":return httpDownload(a);
+   case "shellExec":return terminal(a.getString("command"),a.optString("path",workspace.getPath()));
    case "plugins":return plugins(a);
    case "service":return services.action(a);
    case "ftp":return FtpTools.call(a);
@@ -271,6 +276,30 @@ public final class DataEngine {
  JSONArray apps()throws Exception{JSONArray a=new JSONArray();List<ApplicationInfo>apps=activity.getPackageManager().getInstalledApplications(0);apps.sort((x,y)->String.valueOf(x.loadLabel(activity.getPackageManager())).compareToIgnoreCase(String.valueOf(y.loadLabel(activity.getPackageManager()))));for(ApplicationInfo p:apps)a.put(new JSONObject().put("name",String.valueOf(p.loadLabel(activity.getPackageManager()))).put("package",p.packageName).put("path",p.sourceDir));return a;}
  void record(String text){try{JSONArray old=new JSONArray(activity.getPreferences(0).getString("log","[]"));JSONArray next=new JSONArray();next.put(new JSONObject().put("text",text).put("time",System.currentTimeMillis()));for(int i=0;i<Math.min(199,old.length());i++)next.put(old.get(i));activity.getPreferences(0).edit().putString("log",next.toString()).apply();}catch(Exception ignored){}}
  String terminal(String command,String path)throws Exception{if(command.trim().isEmpty())return "";File dir=new File(path);if(!dir.isDirectory())throw new IOException("请先选择一个普通文件夹");java.lang.Process p=new ProcessBuilder("/system/bin/sh","-c",command).directory(dir).redirectErrorStream(true).start();java.util.concurrent.ExecutorService one=java.util.concurrent.Executors.newSingleThreadExecutor();java.util.concurrent.Future<byte[]>future=one.submit(()->FileOps.bytes(p.getInputStream(),1024*1024));try{if(!p.waitFor(20,java.util.concurrent.TimeUnit.SECONDS)){p.destroyForcibly();throw new IOException("命令在 20 秒后超时");}String result=new String(future.get(2,java.util.concurrent.TimeUnit.SECONDS),StandardCharsets.UTF_8);record("终端命令完成（退出码 "+p.exitValue()+")");return result+"\n[退出码 "+p.exitValue()+"]";}finally{p.destroy();one.shutdownNow();}}
+ JSONObject httpGet(JSONObject a)throws Exception{
+  String url=a.getString("url");
+  if(!url.startsWith("http://")&&!url.startsWith("https://"))throw new IOException("仅支持 http(s) 链接");
+  java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
+  c.setConnectTimeout(10000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent","CyberHubManager/0.1.40");
+  int code=c.getResponseCode();
+  java.io.InputStream in=code>=400?c.getErrorStream():c.getInputStream();
+  byte[] b=in==null?new byte[0]:FileOps.bytes(in,2L*1024*1024);
+  c.disconnect();
+  return new JSONObject().put("status",code).put("body",new String(b,StandardCharsets.UTF_8)).put("bytes",b.length);
+ }
+ JSONObject httpDownload(JSONObject a)throws Exception{
+  String url=a.getString("url");
+  if(!url.startsWith("http://")&&!url.startsWith("https://"))throw new IOException("仅支持 http(s) 链接");
+  File dir=new File(a.optString("destination",workspace.getPath()));if(!dir.isDirectory())throw new IOException("目标文件夹不存在");
+  String name=a.optString("name","");
+  if(name.isEmpty()){String p=url.substring(url.indexOf("://")+3);int q=p.indexOf('?');if(q>=0)p=p.substring(0,q);name=p.substring(p.lastIndexOf('/')+1);if(name.isEmpty())name="payload-"+System.currentTimeMillis();}
+  File dst=FileOps.child(dir,name);
+  java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
+  c.setConnectTimeout(10000);c.setReadTimeout(60000);c.setRequestProperty("User-Agent","CyberHubManager/0.1.40");
+  try(java.io.InputStream in=c.getInputStream();java.io.OutputStream out=new java.io.FileOutputStream(dst)){byte[] buf=new byte[8192];int n;while((n=in.read(buf))>0)out.write(n);}finally{c.disconnect();}
+  record("Payload 下载 "+url+" → "+dst);
+  return new JSONObject().put("path",dst.getPath()).put("size",dst.length());
+ }
  Object plugins(JSONObject a)throws Exception{File dir=new File(workspace,"Plugins");dir.mkdirs();String op=a.optString("op","list");if(op.equals("import")){File src=new File(a.getString("path"));if(!src.getName().endsWith(".sh"))throw new IOException("插件必须是 .sh 脚本");FileOps.copyTree(src,FileOps.child(dir,src.getName()));record("已导入脚本插件 "+src.getName());return true;}if(op.equals("run")){File f=FileOps.child(dir,a.getString("name"));return terminal("/system/bin/sh '"+f.getPath().replace("'","'\\''")+"'",workspace.getPath());}if(op.equals("remove")){FileOps.deleteTree(FileOps.child(dir,a.getString("name")));return true;}JSONArray arr=new JSONArray();File[]fs=dir.listFiles();if(fs!=null)for(File f:fs)if(f.getName().endsWith(".sh"))arr.put(f.getName());return arr;}
  void close(){services.stop();dex.close();}
 }
