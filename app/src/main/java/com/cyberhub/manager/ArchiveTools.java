@@ -117,7 +117,7 @@ public final class ArchiveTools {
     if(!name.startsWith(prefix)||name.equals(prefix))continue;
     String rest=name.substring(prefix.length());int slash=rest.indexOf('/');boolean dir=slash>=0;String shortName=dir?rest.substring(0,slash):rest;
     if(shortName.isEmpty())continue;
-    long time=h.getLastModifiedTime()!=null?h.getLastModifiedTime().getTimeInMillis():0;
+    long time=h.getLastModifiedTime();
     putItem(items,shortName,dir,dir?0:h.getUncompressedSize(),time,archivePath,prefix);
    }
   }else if(format.equals("7z")){
@@ -147,7 +147,7 @@ public final class ArchiveTools {
   List<JSONObject>vals=new ArrayList<>(items.values());vals.sort((x,y)->Boolean.compare(y.optBoolean("dir"),x.optBoolean("dir")));
   JSONArray out=new JSONArray();for(JSONObject v:vals)out.put(v);return out;
  }
- private static void putItem(Map<String,JSONObject>items,String shortName,boolean dir,long size,long time,String archivePath,String prefix){
+ private static void putItem(Map<String,JSONObject>items,String shortName,boolean dir,long size,long time,String archivePath,String prefix)throws org.json.JSONException{
   items.put(shortName,new JSONObject().put("name",shortName).put("dir",dir).put("size",size).put("time",time).put("archive",archivePath).put("entry",prefix+shortName+(dir?"/":"")));
  }
  /** 读取归档内单个条目的全部字节（上限 max），zip/apk/7z/tar 系/gzip 通用。 */
