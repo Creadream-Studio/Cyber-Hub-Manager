@@ -2,35 +2,35 @@ package com.cyberhub.manager;
 import android.content.*;import android.content.SharedPreferences;
 import java.io.*;import java.net.*;import java.nio.charset.StandardCharsets;import java.security.MessageDigest;import java.util.*;import javax.crypto.Mac;import javax.crypto.spec.SecretKeySpec;import org.json.*;
 
-/** Machine translation backends: Tencent Cloud TMT, Baidu, Microsoft Translator and OpenAI-compatible models. */
+/** Machine translation backends: Tencent Cloud TMT, Baidu, Microsoft Translator, Aliyun MT, Volcengine Translate and OpenAI-compatible models. */
 public final class Translate {
  public static final String PREFS="translate-config";
- static final String[] PROVIDERS={"tencent","baidu","microsoft","ai"};
- // key, 中文名, tencent, baidu, microsoft, ai
+ static final String[] PROVIDERS={"tencent","baidu","microsoft","aliyun","volc","ai"};
+ // key, 中文名, tencent, baidu, microsoft, ai, aliyun, volc
  static final String[][] LANGUAGES={
-  {"zh","中文","zh","zh","zh-Hans","中文"},
-  {"en","English","en","en","en","English"},
-  {"ja","日本語","ja","jp","ja","Japanese"},
-  {"ko","한국어","ko","kor","ko","Korean"},
-  {"fr","Français","fr","fra","fr","French"},
-  {"de","Deutsch","de","de","de","German"},
-  {"es","Español","es","spa","es","Spanish"},
-  {"pt","Português","pt","pt","pt","Portuguese"},
-  {"it","Italiano","it","it","it","Italian"},
-  {"ru","Русский","ru","ru","ru","Russian"},
-  {"ar","العربية","ar","ara","ar","Arabic"},
-  {"th","ไทย","th","th","th","Thai"},
-  {"vi","Tiếng Việt","vi","vie","vi","Vietnamese"},
-  {"tr","Türkçe","tr","tur","tr","Turkish"},
-  {"pl","Polski","pl","pol","pl","Polish"},
-  {"nl","Nederlands","nl","dut","nl","Dutch"},
-  {"id","Bahasa Indonesia","id","id","id","Indonesian"},
-  {"ms","Bahasa Melayu","ms","may","ms","Malay"},
-  {"zhTW","繁體中文","zh-TW","cht","zh-Hant","Traditional Chinese"}
+  {"zh","中文","zh","zh","zh-Hans","中文","zh","zh"},
+  {"en","English","en","en","en","English","en","en"},
+  {"ja","日本語","ja","jp","ja","Japanese","ja","ja"},
+  {"ko","한국어","ko","kor","ko","Korean","ko","ko"},
+  {"fr","Français","fr","fra","fr","French","fr","fr"},
+  {"de","Deutsch","de","de","de","German","de","de"},
+  {"es","Español","es","spa","es","Spanish","es","es"},
+  {"pt","Português","pt","pt","pt","Portuguese","pt","pt"},
+  {"it","Italiano","it","it","it","Italian","it","it"},
+  {"ru","Русский","ru","ru","ru","Russian","ru","ru"},
+  {"ar","العربية","ar","ara","ar","Arabic","ar","ar"},
+  {"th","ไทย","th","th","th","Thai","th","th"},
+  {"vi","Tiếng Việt","vi","vie","vi","Vietnamese","vi","vi"},
+  {"tr","Türkçe","tr","tur","tr","Turkish","tr","tr"},
+  {"pl","Polski","pl","pol","pl","Polish","pl","pl"},
+  {"nl","Nederlands","nl","dut","nl","Dutch","nl","nl"},
+  {"id","Bahasa Indonesia","id","id","id","Indonesian","id","id"},
+  {"ms","Bahasa Melayu","ms","may","ms","Malay","ms","ms"},
+  {"zhTW","繁體中文","zh-TW","cht","zh-Hant","Traditional Chinese","zh-tw","zh-Hant"}
  };
  final Context context;
  final SecretStore secrets;
- static final String[] SECRET_KEYS={"tencentSecretId","tencentSecretKey","baiduAppKey","microsoftKey","aiApiKey"};
+ static final String[] SECRET_KEYS={"tencentSecretId","tencentSecretKey","baiduAppKey","microsoftKey","aiApiKey","aliyunAccessKeySecret","volcSecretAccessKey"};
  Translate(Context c){context=c;secrets=new SecretStore(c);}
  // ---------- configuration ----------
  SharedPreferences prefs(){return context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);}
@@ -39,7 +39,7 @@ public final class Translate {
   SharedPreferences p=prefs();JSONObject o=new JSONObject();
   o.put("provider",p.getString("provider","tencent"));
   o.put("target",p.getString("target","en"));
-  for(String k:new String[]{"tencentSecretId","tencentSecretKey","tencentProjectId","tencentRegion","baiduAppId","baiduAppKey","microsoftKey","microsoftRegion","aiBaseUrl","aiApiKey","aiModel","aiPrompt"})o.put(k,secretKey(k)?secrets.get(k):p.getString(k,""));
+  for(String k:new String[]{"tencentSecretId","tencentSecretKey","tencentProjectId","tencentRegion","baiduAppId","baiduAppKey","microsoftKey","microsoftRegion","aliyunAccessKeyId","aliyunAccessKeySecret","volcAccessKeyId","volcSecretAccessKey","aiBaseUrl","aiApiKey","aiModel","aiPrompt"})o.put(k,secretKey(k)?secrets.get(k):p.getString(k,""));
   o.put("configured",configured(o));
   return o;
  }
@@ -48,12 +48,14 @@ public final class Translate {
   if(p.equals("tencent"))return !c.optString("tencentSecretId").isEmpty()&&!c.optString("tencentSecretKey").isEmpty();
   if(p.equals("baidu"))return !c.optString("baiduAppId").isEmpty()&&!c.optString("baiduAppKey").isEmpty();
   if(p.equals("microsoft"))return !c.optString("microsoftKey").isEmpty();
+  if(p.equals("aliyun"))return !c.optString("aliyunAccessKeyId").isEmpty()&&!c.optString("aliyunAccessKeySecret").isEmpty();
+  if(p.equals("volc"))return !c.optString("volcAccessKeyId").isEmpty()&&!c.optString("volcSecretAccessKey").isEmpty();
   if(p.equals("ai"))return !c.optString("aiApiKey").isEmpty()||!c.optString("aiBaseUrl").isEmpty();
   return false;
  }
  void saveConfig(JSONObject a)throws Exception{
   SharedPreferences.Editor e=prefs().edit();
-  for(String k:new String[]{"provider","target","tencentSecretId","tencentSecretKey","tencentProjectId","tencentRegion","baiduAppId","baiduAppKey","microsoftKey","microsoftRegion","aiBaseUrl","aiApiKey","aiModel","aiPrompt"})if(a.has(k)){
+  for(String k:new String[]{"provider","target","tencentSecretId","tencentSecretKey","tencentProjectId","tencentRegion","baiduAppId","baiduAppKey","microsoftKey","microsoftRegion","aliyunAccessKeyId","aliyunAccessKeySecret","volcAccessKeyId","volcSecretAccessKey","aiBaseUrl","aiApiKey","aiModel","aiPrompt"})if(a.has(k)){
    if(secretKey(k))secrets.put(k,a.optString(k,""));
    else e.putString(k,a.optString(k,""));
   }
@@ -74,6 +76,8 @@ public final class Translate {
   if(provider.equals("tencent"))result=tencent(c,text,from,target);
   else if(provider.equals("baidu"))result=baidu(c,text,from,target);
   else if(provider.equals("microsoft"))result=microsoft(c,text,from,target);
+  else if(provider.equals("aliyun"))result=aliyun(c,text,from,target);
+  else if(provider.equals("volc"))result=volc(c,text,from,target);
   else if(provider.equals("ai"))result=ai(c,text,target);
   else throw new IOException("未知的翻译服务："+provider);
   return new JSONObject().put("text",result).put("provider",provider).put("target",target);
@@ -180,6 +184,79 @@ public final class Translate {
   JSONObject message=choices.getJSONObject(0).optJSONObject("message");
   if(message==null)throw new IOException("模型未返回结果："+raw);
   return message.optString("content","").trim();
+ }
+ // ---------- Aliyun Machine Translation (RPC HMAC-SHA1) ----------
+ String aliyun(JSONObject c,String text,String from,String to)throws Exception{
+  String ak=c.optString("aliyunAccessKeyId"),sk=c.optString("aliyunAccessKeySecret");
+  if(ak.isEmpty()||sk.isEmpty())throw new IOException("请先在「翻译服务」中填写阿里云的 AccessKey ID 与 AccessKey Secret。");
+  String[] row=languageRow(to);if(row==null)throw new IOException("不支持的目标语言："+to);
+  String target=row[6];
+  String source=from.equals("auto")?"auto":(languageRow(from)==null?from:languageRow(from)[6]);
+  java.util.TreeMap<String,String> params=new java.util.TreeMap<>();
+  params.put("Action","TranslateGeneral");params.put("Version","2018-10-12");params.put("Format","JSON");
+  params.put("AccessKeyId",ak);params.put("SignatureMethod","HMAC-SHA1");params.put("SignatureVersion","1.0");
+  params.put("SignatureNonce",UUID.randomUUID().toString());
+  java.text.SimpleDateFormat fmt=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+  fmt.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
+  params.put("Timestamp",fmt.format(new java.util.Date()));
+  params.put("FormatType","text");params.put("SourceLanguage",source);params.put("TargetLanguage",target);
+  params.put("SourceText",text);params.put("Scene","general");
+  StringBuilder canon=new StringBuilder();
+  for(Map.Entry<String,String> e:params.entrySet())canon.append(aliyunEncode(e.getKey())).append('=').append(aliyunEncode(e.getValue())).append('&');
+  String stringToSign="POST&"+aliyunEncode("/")+"&"+aliyunEncode(canon.substring(0,canon.length()-1));
+  Mac mac=Mac.getInstance("HmacSHA1");mac.init(new SecretKeySpec((sk+'&').getBytes(StandardCharsets.UTF_8),"HmacSHA1"));
+  String sign=Base64.getEncoder().encodeToString(mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8)));
+  params.put("Signature",sign);
+  StringBuilder url=new StringBuilder("https://mt.aliyuncs.com/?");
+  for(Map.Entry<String,String> e:params.entrySet())url.append(aliyunEncode(e.getKey())).append('=').append(aliyunEncode(e.getValue())).append('&');
+  String raw=post(url.substring(0,url.length()-1),new JSONObject().put("Content-Type","application/x-www-form-urlencoded"),"");
+  JSONObject o=new JSONObject(raw);
+  if(o.has("Code"))throw new IOException("阿里云翻译错误："+o.optString("Message",raw)+"（"+o.optString("Code")+"）");
+  JSONObject data=o.optJSONObject("Data");
+  if(data==null)throw new IOException("阿里云翻译未返回结果："+raw);
+  return data.optString("Translated","");
+ }
+ static String aliyunEncode(String value)throws Exception{
+  return URLEncoder.encode(value,"UTF-8").replace("+","%20").replace("*","%2A").replace("%7E","~");
+ }
+ // ---------- Volcengine Translate (V4 HMAC-SHA256) ----------
+ String volc(JSONObject c,String text,String from,String to)throws Exception{
+  String ak=c.optString("volcAccessKeyId"),sk=c.optString("volcSecretAccessKey");
+  if(ak.isEmpty()||sk.isEmpty())throw new IOException("请先在「翻译服务」中填写火山引擎的 AccessKey ID 与 Secret Access Key。");
+  String[] row=languageRow(to);if(row==null)throw new IOException("不支持的目标语言："+to);
+  String target=row[7];
+  String source=from.equals("auto")?"":(languageRow(from)==null?from:languageRow(from)[7]);
+  JSONObject body=new JSONObject().put("TargetLanguage",target).put("SourceLanguage",source).put("Text",new JSONArray().put(text));
+  String payload=body.toString();
+  String host="open.volcengineapi.com",region="cn-north-1",service="translation";
+  String query="Action=Translate&Version=2020-06-01";
+  java.text.SimpleDateFormat df=new java.text.SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
+  df.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
+  String xdate=df.format(new java.util.Date());
+  String date=xdate.substring(0,8);
+  String payloadHash=sha256Hex(payload.getBytes(StandardCharsets.UTF_8));
+  String canonicalHeaders="content-type:application/json\nhost:"+host+"\nx-content-sha256:"+payloadHash+"\nx-date:"+xdate+"\n";
+  String signedHeaders="content-type;host;x-content-sha256;x-date";
+  String canonicalRequest="POST\n/\n"+query+"\n"+canonicalHeaders+"\n"+signedHeaders+"\n"+payloadHash;
+  String credentialScope=date+"/"+region+"/"+service+"/request";
+  String stringToSign="HMAC-SHA256\n"+xdate+"\n"+credentialScope+"\n"+sha256Hex(canonicalRequest.getBytes(StandardCharsets.UTF_8));
+  byte[] kDate=hmac(sk.getBytes(StandardCharsets.UTF_8),date.getBytes(StandardCharsets.UTF_8));
+  byte[] kRegion=hmac(kDate,region.getBytes(StandardCharsets.UTF_8));
+  byte[] kService=hmac(kRegion,service.getBytes(StandardCharsets.UTF_8));
+  byte[] kSigning=hmac(kService,"request".getBytes(StandardCharsets.UTF_8));
+  String signature=hex(hmac(kSigning,stringToSign.getBytes(StandardCharsets.UTF_8)));
+  JSONObject headers=new JSONObject().put("Content-Type","application/json").put("X-Date",xdate)
+   .put("X-Content-Sha256",payloadHash)
+   .put("Authorization","HMAC-SHA256 Credential="+ak+"/"+credentialScope+", SignedHeaders="+signedHeaders+", Signature="+signature);
+  String raw=post("https://"+host+"/?"+query,headers,payload);
+  JSONObject o=new JSONObject(raw);
+  JSONObject meta=o.optJSONObject("ResponseMetadata");
+  if(meta!=null&&meta.has("Error"))throw new IOException("火山引擎翻译错误："+meta.optJSONObject("Error").optString("Message",raw)+"（"+meta.optJSONObject("Error").optString("Code")+"）");
+  JSONObject result=o.optJSONObject("Result");
+  if(result==null)throw new IOException("火山引擎翻译未返回结果："+raw);
+  JSONArray list=result.optJSONArray("Translations");
+  if(list==null||list.length()==0)throw new IOException("火山引擎翻译未返回结果："+raw);
+  return list.getJSONObject(0).optString("Translation","");
  }
  // ---------- http ----------
  static String post(String url,JSONObject headers,String body)throws Exception{
