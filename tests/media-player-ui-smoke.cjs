@@ -59,21 +59,11 @@ assert(w.document.querySelector('[data-photo-info]'),'info button kept');
 evaluate("closePhoto()");
 pass('photo preview opens directly without external button');
 
-// 4) 内置视频播放器：DOM 结构 + 流地址 + 手势提示
+// 4) 视频走原生播放器（0.1.22 移植 MP-Manager）：点视频触发 playVideo rpc，WebView 播放器不再出现
 evaluate("playMedia(state.panes[0].items.find(x=>x.name==='movie.mkv'),'video')");
-await wait(()=>w.document.querySelector('#mediaLayer.open .playerMedia'));
-await wait(()=>{const v=w.document.querySelector('.playerMedia');return v&&v.src&&v.src.includes('/media/');});
-assert(w.document.querySelector('#mediaLayer .playerStage'),'gesture stage present');
-assert(w.document.querySelector('#mediaLayer [data-player-dim]'),'brightness overlay present');
-assert(w.document.querySelector('#mediaLayer [data-player-boost]'),'boost badge present');
-assert(w.document.querySelector('#mediaLayer [data-player-side]'),'volume/brightness indicator present');
-assert(w.document.querySelector('#mediaLayer .playerSeek'),'seek slider present');
-assert(w.document.querySelector('#mediaLayer [data-player-play]'),'play/pause button present');
-assert(w.document.querySelector('#mediaLayer [data-player-foot]').textContent.includes('长按屏幕'),'gesture hint in footer');
-assert(w.document.querySelector('#mediaLayer .photoSub').textContent.includes('视频'),'video player subtitle');
-evaluate("closePlayer()");
-await wait(()=>!w.document.querySelector('#mediaLayer .playerMedia'));
-pass('video player renders with gestures and same-origin stream url');
+await wait(()=>w.__calls&&w.__calls.some(c=>c.action==='playVideo'&&c.args.path.endsWith('movie.mkv')));
+assert(!w.document.querySelector('#mediaLayer.open .playerMedia'),'video no longer opens the WebView player');
+pass('video files launch the native MP-Manager player');
 
 // 5) 内置音频播放器
 evaluate("playMedia(state.panes[0].items.find(x=>x.name==='song.flac'),'audio')");
