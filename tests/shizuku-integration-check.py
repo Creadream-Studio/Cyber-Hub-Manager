@@ -38,8 +38,12 @@ else:
         errors.append('multiprocess 必须为 false（ShizukuProvider.attachInfo 强制要求）')
     if a('enabled') in (None, 'false'):
         errors.append('enabled 必须为 true')
-    if a('process') != ':shizuku':
-        errors.append("process 应为 ':shizuku'（Shizuku 官方集成模板要求）")
+    if a('process') is not None:
+        errors.append(
+            "禁止设置 android:process（当前 %r）——官方模板不使用独立进程：provider 必须运行在主进程，"
+            "Shizuku 服务端把 binder 经 call('sendBinder') 推送到 provider 所在进程；若 provider 在 :shizuku "
+            "独立进程，binder 只会送进该进程，主进程（Shizuku 类的静态 binder 字段所在处）永远收不到，"
+            "pingBinder() 恒为 false（0.1.54 的实际故障）" % a('process'))
     if a('permission') != 'android.permission.INTERACT_ACROSS_USERS_FULL':
         errors.append('permission 应为 android.permission.INTERACT_ACROSS_USERS_FULL')
 

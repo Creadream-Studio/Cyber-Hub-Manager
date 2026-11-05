@@ -43,10 +43,11 @@ public final class ElevatedAccess {
         try{return Shizuku.pingBinder();}catch(Throwable t){return false;}
     }
 
-    /** binder 由 Shizuku 服务端异步送达（provider 进程拉起→推送），刚启动时可能尚未到达；带短重试。 */
+    /** binder 由 Shizuku 服务端主动推送到 provider 所在进程（即主进程）：服务启动时、应用进程启动时都会推送；
+     *  刚启动时可能尚未到达，带重试等待。 */
     public static boolean shizukuRunningWait(){
         if(shizukuRunning())return true;
-        for(int i=0;i<4;i++){
+        for(int i=0;i<8;i++){
             try{Thread.sleep(400);}catch(InterruptedException e){Thread.currentThread().interrupt();return false;}
             if(shizukuRunning())return true;
         }
@@ -99,7 +100,7 @@ public final class ElevatedAccess {
             String msg;
             if(cause instanceof IllegalStateException){
                 msg=shizukuProviderRegistered(c)
-                    ?"Shizuku 服务未启动或 binder 未送达（IllegalStateException）：请确认 Shizuku 应用内服务显示「正在运行」；若刚启动服务，请从最近任务划掉本应用后重新打开再试"
+                    ?"Shizuku 服务未启动或 binder 未送达（IllegalStateException）：请确认 Shizuku 应用内服务显示「正在运行」；若仍连不上，请在 Shizuku 应用内停止并重新启动服务，然后从最近任务划掉本应用后重新打开再试"
                     :"ShizukuProvider 未正确注册（IllegalStateException）：请升级本应用到最新版本（旧版应用的 provider 注册名有误，导致永远连不上 Shizuku）";
             }
             else if(cause instanceof SecurityException)msg="未获得 Shizuku 授权（SecurityException）：请先在本应用「授权」页申请 Shizuku 授权";
