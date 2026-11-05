@@ -21,6 +21,11 @@ async function wait(fn,name){for(let i=0;i<200;i++){if(fn())return;await sleep()
 let count=0;const pass=n=>{count++;console.log('PASS',n)};
 
 await wait(()=>w.document.querySelectorAll('.file').length>0,'files');
+// 0) 压缩包内图片/视频行带 media dataset（缩略图支持）
+const mediaRow=[...w.document.querySelectorAll('.file')].find(r=>r.dataset.mediaKind==='image'&&r.dataset.mediaArchive);
+assert(mediaRow,'archive image row has media dataset');
+assert(mediaRow.dataset.mediaEntry==='img1.jpg','entry recorded');
+pass('压缩包内媒体行标记缩略图属性');
 // 1) 压缩包内图片直接预览（不再弹"无法预览"）
 await evaluate("openPhoto(state.panes[0].items.find(x=>x.name==='img1.jpg'))");
 await wait(()=>w.document.querySelector('#mediaLayer.open .photoImage'),'photo opens');
