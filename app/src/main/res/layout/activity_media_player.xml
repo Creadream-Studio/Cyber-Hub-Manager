@@ -252,7 +252,7 @@
                 android:id="@+id/btnShuffle"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:src="@android:drawable/ic_menu_random"
+                android:src="@android:drawable/ic_menu_manage"
                 android:background="?android:attr/selectableItemBackground"
                 android:contentDescription="随机播放" />
             <ImageButton
