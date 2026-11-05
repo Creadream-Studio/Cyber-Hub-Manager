@@ -113,6 +113,8 @@ public final class DataEngine {
    case "log":return new JSONArray(activity.getPreferences(0).getString("log","[]"));
    case "logClear":activity.getPreferences(0).edit().putString("log","[]").apply();return true;
    case "record":record(a.getString("text"));return true;
+  case "logRemove":{long t=a.getLong("time");JSONArray old=new JSONArray(activity.getPreferences(0).getString("log","[]"));JSONArray next=new JSONArray();for(int i=0;i<old.length();i++){try{JSONObject o=old.getJSONObject(i);if(o.optLong("time")!=t)next.put(o);}catch(Exception ignored){}}activity.getPreferences(0).edit().putString("log",next.toString()).apply();return true;}
+  case "logExport":{File dir=new File(a.optString("dir",workspace.getPath()));if(!dir.isDirectory())dir=workspace;File out=FileOps.child(dir,"活动记录-"+new java.text.SimpleDateFormat("yyyyMMdd-HHmmss",java.util.Locale.ROOT).format(new java.util.Date())+".txt");FileOps.writeAtomic(out,a.getString("text").getBytes(java.nio.charset.StandardCharsets.UTF_8),false);return out.getPath();}
    case "httpGet":return httpGet(a);
    case "httpDownload":return httpDownload(a);
    case "shellExec":return terminal(a.getString("command"),a.optString("path",workspace.getPath()));
