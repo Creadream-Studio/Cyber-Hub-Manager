@@ -59,7 +59,7 @@ def jar(item):
  if not p.exists():p.write_bytes(download(g,a,v,'jar'))
  print('Fetched',p.name,flush=True)
 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:list(pool.map(jar,seen.items()))
-(ROOT/'DEPENDENCIES.json').write_text(json.dumps([{'group':g,'artifact':a,'version':v} for (g,a),v in seen.items()]+[{'group':'dev.rikka.shizuku','artifact':a,'version':'13.1.5'} for a in ('api','provider')],indent=2)+'\n')
+(ROOT/'DEPENDENCIES.json').write_text(json.dumps([{'group':g,'artifact':a,'version':v} for (g,a),v in seen.items()]+[{'group':'dev.rikka.shizuku','artifact':a,'version':'13.1.5'} for a in ('api','provider','aidl','shared')],indent=2)+'\n')
 
 def fetch(url):
  for _ in range(3):
@@ -90,8 +90,9 @@ for a,lib in (('terminal-emulator',LIB),('terminal-view',VIEW_LIB)):
  with zipfile.ZipFile(io.BytesIO(fetch(url))) as z:
   (lib/f'{a}-{v}.jar').write_bytes(z.read('classes.jar'))
  print('Fetched',f'{a}-{v}.jar',flush=True)
-# Rikka Shizuku API/provider (AAR): extract classes.jar for the desktop fallback build.
-for a in ('api','provider'):
+# Rikka Shizuku API/provider/aidl/shared (AAR): extract classes.jar for the desktop fallback build.
+# aidl 提供 moe.shizuku.server AIDL 接口, shared 提供 ShizukuApiConstants——缺失会导致运行时 NoClassDefFoundError。
+for a in ('api','provider','aidl','shared'):
  g,v='dev.rikka.shizuku',a+'/13.1.5'
  url=f'https://repo.maven.apache.org/maven2/dev/rikka/shizuku/{a}/13.1.5/{a}-13.1.5.aar'
  with zipfile.ZipFile(io.BytesIO(fetch(url))) as z:
