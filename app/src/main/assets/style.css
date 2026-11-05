@@ -996,14 +996,16 @@ body.list-large .fileicon.thumbFill .playBadge svg{width:8px;height:8px}
 .playerLoading{pointer-events:none}
 .playerLoading .playerFallbackBtn{pointer-events:auto;margin-top:8px;padding:6px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-size:13px}
 
-/* 0.1.25 DEX 翻译模式：线条表格（参考截图二：表头 + 行分隔线 + 译文虚线占位） */
-.dexTlHead{display:flex;gap:12px;padding:11px 14px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:1}
-.dexTlHead span{flex:1}
-.dexTlRow{display:flex;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--line)}
-.dexTlRow .tlSource{flex:1;min-width:0;word-break:break-all;font-size:14px;line-height:20px;cursor:pointer;color:var(--text)}
-.dexTlRow input.tlTarget{flex:1;min-width:0;background:transparent;color:var(--text);border:0;border-bottom:1px dashed var(--muted);padding:5px 0 6px;font:inherit;font-size:14px;line-height:20px;opacity:1}
-.dexTlRow input.tlTarget::placeholder{color:var(--muted);opacity:.85}
-.dexTlRow input.tlTarget:focus{border-bottom-style:solid;border-bottom-color:var(--blue);outline:0}
+/* 0.1.26 DEX 翻译模式：线条画的表格（参考截图二：表头 + 行分隔线 + 译文虚线占位） */
+.dexTlPage{padding:0 0 28px}
+.dexTlPage .searchline{border-bottom:1px solid var(--line)}
+.dexTlTable{width:100%;border-collapse:collapse;table-layout:fixed}
+.dexTlTable th{border-bottom:1px solid var(--line);font-weight:400;color:var(--muted);font-size:13px;padding:11px 14px;text-align:left;width:50%}
+.dexTlTable td{border-bottom:1px solid var(--line);padding:13px 14px;vertical-align:middle;width:50%;word-break:break-all;font-size:14px;line-height:20px;color:var(--text)}
+.dexTlTable td.tlSource{cursor:pointer}
+.dexTlTable input.tlTarget{width:100%;background:transparent;color:var(--text);border:0;border-bottom:1px dashed var(--muted);padding:4px 0 5px;font:inherit;font-size:14px;line-height:20px}
+.dexTlTable input.tlTarget::placeholder{color:var(--muted);opacity:.85}
+.dexTlTable input.tlTarget:focus{border-bottom-style:solid;border-bottom-color:var(--blue);outline:0}
 .dexTlDictList{max-height:50vh;overflow:auto}
 .dexTlDictRow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
 .dexTlDictRow .main{flex:1;min-width:0;word-break:break-all;font-size:13px}
