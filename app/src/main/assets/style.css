@@ -1038,3 +1038,6 @@ body.light .dexTlDictDel{color:#b04848}
 .fabUninstall{background:#d9a441}
 .fabInvert{background:#4a8ad6}
 .fabExtract{background:#4a8ad6}
+/* 0.1.50 Android/data|media|obb 文件夹 + 应用图标组合角标 */
+.fileicon.appBadgeHost{position:relative;overflow:visible}
+.fileicon .appBadge{position:absolute;right:-4px;bottom:-4px;width:16px;height:16px;border-radius:4px;object-fit:contain;background:var(--bg);box-shadow:0 0 0 1.5px var(--bar);z-index:1}
