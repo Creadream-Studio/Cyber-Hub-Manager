@@ -970,8 +970,8 @@ body.light .quickRow .fileicon.arsc{background:#a57306!important;color:#fff!impo
    scroll and fires pointercancel before our swipe handler can react. */
 #bottom{touch-action:none}
 #bottom .playerSeek,#bottom input[type=range]{touch-action:auto}
-/* 0.1.14 长按菜单：竖排列表 + • 标记；路径栏可点按跳转 */
-.actionGrid{grid-template-columns:1fr}
+/* 长按菜单：两列网格（参考 MT 截图）+ • 标记；路径栏可点按跳转 */
+.actionGrid{grid-template-columns:1fr 1fr}
 .actionGrid .actionName{flex:1;min-width:0;display:inline-flex;align-items:center;gap:6px;overflow-wrap:anywhere}
 .actionGrid .menuDot{color:#7fb3ff;font-weight:700;font-size:15px;line-height:1;flex:none}
 .pathJump{cursor:pointer;border-radius:8px}
