@@ -34,7 +34,7 @@ if not ecj.exists():
  if not ecj.exists():urllib.request.urlretrieve('https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.37.0/ecj-3.37.0.jar',ecj)
 resources=B/'resources.zip';run(native('aapt2','compile','--dir',P/'app/src/main/res','-o',resources))
 gen=B/'gen';shutil.rmtree(gen,ignore_errors=True);gen.mkdir()
-base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--java',gen,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','34','--version-name','0.1.38',resources))
+base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--java',gen,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','35','--version-name','0.1.39',resources))
 classes=B/'classes';shutil.rmtree(classes,ignore_errors=True);classes.mkdir()
 cp=os.pathsep.join(map(str,[api,*LIB]))
 run(java('-jar',ecj,'-11','-proc:none','-nowarn','-encoding','UTF-8','-classpath',cp,'-d',classes,gen/'com/cyberhub/manager/R.java',*sorted((P/'app/src/main/java').rglob('*.java'))))
@@ -94,7 +94,7 @@ def verify_native_alignment(apk):
    if relro_end and relro_end%page:raise RuntimeError(f'{info.filename} RELRO ends at {relro_end:#x}, not 16 KB-aligned')
    print('16 KB OK',info.filename,'zip',hex(dataoff),'loads',loads)
 verify_native_alignment(aligned)
-output=P/'dist';output.mkdir(exist_ok=True);apk=output/'Cyber-Hub-Manager-0.1.38.apk'
+output=P/'dist';output.mkdir(exist_ok=True);apk=output/'Cyber-Hub-Manager-0.1.39.apk'
 signed=B/('signed-'+uuid.uuid4().hex+'.apk')
 run(java('-jar',BT/'lib/apksigner.jar','sign','--ks',key,'--ks-pass','pass:cyberhub-development','--key-pass','pass:cyberhub-development','--out',signed,aligned))
 run(java('-jar',BT/'lib/apksigner.jar','verify','--verbose',signed))
