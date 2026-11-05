@@ -996,16 +996,16 @@ body.list-large .fileicon.thumbFill .playBadge svg{width:8px;height:8px}
 .playerLoading{pointer-events:none}
 .playerLoading .playerFallbackBtn{pointer-events:auto;margin-top:8px;padding:6px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-size:13px}
 
-/* 0.1.26 DEX 翻译模式：线条画的表格（参考截图二：表头 + 行分隔线 + 译文虚线占位） */
+/* 0.1.27 DEX 翻译模式：还原 MT 双栏布局——左栏白底原文，右栏整列灰底译文编辑区，行间横线，无表头 */
 .dexTlPage{padding:0 0 28px}
 .dexTlPage .searchline{border-bottom:1px solid var(--line)}
 .dexTlTable{width:100%;border-collapse:collapse;table-layout:fixed}
-.dexTlTable th{border-bottom:1px solid var(--line);font-weight:400;color:var(--muted);font-size:13px;padding:11px 14px;text-align:left;width:50%}
-.dexTlTable td{border-bottom:1px solid var(--line);padding:13px 14px;vertical-align:middle;width:50%;word-break:break-all;font-size:14px;line-height:20px;color:var(--text)}
-.dexTlTable td.tlSource{cursor:pointer}
-.dexTlTable input.tlTarget{width:100%;background:transparent;color:var(--text);border:0;border-bottom:1px dashed var(--muted);padding:4px 0 5px;font:inherit;font-size:14px;line-height:20px}
+.dexTlTable td{border-bottom:1px solid var(--line);padding:0;width:50%;height:44px;vertical-align:middle;word-break:break-all;font-size:14px;line-height:20px}
+.dexTlTable td.tlSource{padding:12px 14px;background:var(--bg);color:var(--text);cursor:pointer}
+.dexTlTable td.tlTargetCell{background:var(--active)}
+.dexTlTable input.tlTarget{width:100%;height:44px;background:transparent;color:var(--text);border:0;padding:0 14px;font:inherit;font-size:14px;line-height:20px}
 .dexTlTable input.tlTarget::placeholder{color:var(--muted);opacity:.85}
-.dexTlTable input.tlTarget:focus{border-bottom-style:solid;border-bottom-color:var(--blue);outline:0}
+.dexTlTable input.tlTarget:focus{outline:0}
 .dexTlDictList{max-height:50vh;overflow:auto}
 .dexTlDictRow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
 .dexTlDictRow .main{flex:1;min-width:0;word-break:break-all;font-size:13px}
