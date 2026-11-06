@@ -88,9 +88,11 @@ assert.equal(typeOf('note.txt'),'text');
 assert.equal(typeOf('unknown.dat'),'file');
 assert.equal(typeOf('part.001'),'file');
 assert.equal(typeOf('app-release.apk'),'apk');
+assert.equal(typeOf('APP.APK'),'apk');
+assert.equal(typeOf('app.apk.bak'),'bak');
 assert.equal(typeOf('splits.apks'),'apks');
 assert.equal(w.eval('window.__test.fileType({name:"x",dir:true})'),'folder');
-pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin/hap/iap/ipa/exe/deb 与图片、音频、视频、文本、未知、分卷兜底正确，后缀大小写不敏感，.bak 优先级更高');
+pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin/hap/iap/ipa/exe/deb/apk 与图片、音频、视频、文本、未知、分卷兜底正确，后缀大小写不敏感，.bak 优先级更高');
 
 // 2) 富图标 SVG：特征颜色与徽标文字
 const iconOf=n=>w.eval(`window.__test.icon(${JSON.stringify(n)})`);
@@ -125,7 +127,11 @@ assert((exeSvg.match(/<rect /g)||[]).length>=5&&(exeSvg.match(/rx="0.6"/g)||[]).
 const debSvg=iconOf('deb');
 assert(debSvg.includes('#d70a53')&&debSvg.includes('>DEB<'),'deb debian-pink badge with DEB text');
 assert(debSvg.includes('a3.05 3.05 0 0 0-6.1 0')&&debSvg.includes('stroke-linecap="round"'),'deb white spiral swirl stroke');
-pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口、deb 螺旋卷曲及媒体配色齐备，zip 别名渲染纸箱');
+const apkSvg=iconOf('apk');
+assert(apkSvg.includes('#34a853')&&apkSvg.includes('>APK<'),'apk deep-green software badge with APK text');
+assert(apkSvg.includes('a4 4 0 0 1 8 0z')&&apkSvg.includes('stroke-linecap="round"'),'apk white robot head dome with antennae strokes');
+assert((apkSvg.match(/<circle /g)||[]).length===2,'apk two eye cutout circles');
+pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口、deb 螺旋卷曲、apk 机器人头软件徽标及媒体配色齐备，zip 别名渲染纸箱');
 
 // 3) 列表渲染：每行图标节点与类型类名
 const expectIcon=(name,cls)=>{const h=holder(name);assert(h,'icon holder '+name);assert(h.classList.contains(cls),'class '+cls+' for '+name);assert(h.querySelector('svg'),'svg in '+name);return h;};
@@ -158,12 +164,12 @@ const apksHolder=expectIcon('splits.apks','apks');
 assert(apksHolder.classList.contains('appBadgeHost'),'apks badge host');
 const folderHolder=holder('相册');
 assert(folderHolder&&folderHolder.classList.contains('folder')&&folderHolder.querySelector('svg'),'folder icon node');
-pass('文件列表为每种类型渲染带类型类名的图标节点（含 hap/iap/ipa 安装包、exe 可执行文件、deb 软件包），apks 为角标宿主');
+pass('文件列表为每种类型渲染带类型类名的图标节点（含 hap/iap/ipa 安装包、exe 可执行文件、deb 软件包、apk 软件徽标占位），apks 为角标宿主');
 
-// 4) APK 真实软件图标：懒加载后整格替换为图片
+// 4) APK 真实软件图标：懒加载后整格替换为图片（加载前占位为绿色软件徽标）
 await wait(()=>{const h=holder('app-release.apk');return h&&h.querySelector('img')&&!h.querySelector('svg');},'apk real icon');
 assert(holder('app-release.apk').querySelector('img').src.startsWith('data:image/png;base64,'),'apk icon data url');
-pass('.apk 懒加载真实软件图标并整格替换');
+pass('.apk 懒加载真实软件图标并整格替换（占位/失败回退为绿色软件徽标）');
 
 // 5) APKS 机器人 + 右下角小图标角标：svg 保留、img 叠加
 await wait(()=>{const h=holder('splits.apks');return h&&h.querySelector('img.appBadge')&&h.querySelector('svg');},'apks badge');

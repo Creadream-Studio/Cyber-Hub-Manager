@@ -22,7 +22,9 @@ With category gating. 0.1.59 adds so (purple gear badge), bin (dark slate
 with green binary digits), the installer badges hap (HarmonyOS blue with
 cyan orbit), iap (teal with install arrow), ipa (silver with dark arrow),
 exe (Microsoft blue with a white four-pane window plus EXE badge) and deb
-(Debian pink with a white spiral swirl plus DEB badge) coverage.
+(Debian pink with a white spiral swirl plus DEB badge) coverage, and turns
+the .apk placeholder/fallback icon into a deep-green software badge (white
+robot head plus APK text) while keeping the real .apk icon lazy replacement.
 
 performance-profile.cjs counts full-buffer reads, line-mark visits and editor
 refreshes on a 15,003-line file. UI_SCRIPT can point to an older app.js for
