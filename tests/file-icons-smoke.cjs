@@ -24,6 +24,8 @@ w.eval(`(()=>{
     {name:'harmony_app.hap',path:'${root}/harmony_app.hap',dir:false,size:1,time:1},
     {name:'update_pack.iap',path:'${root}/update_pack.iap',dir:false,size:1,time:1},
     {name:'iOS安装包.ipa',path:'${root}/iOS安装包.ipa',dir:false,size:1,time:1},
+    {name:'setup.exe',path:'${root}/setup.exe',dir:false,size:1,time:1},
+    {name:'driver.exe',path:'${root}/driver.exe',dir:false,size:1,time:1},
     {name:'photo.jpg',path:'${root}/photo.jpg',dir:false,size:1,time:1},
     {name:'music.mp3',path:'${root}/music.mp3',dir:false,size:1,time:1},
     {name:'clip.mp4',path:'${root}/clip.mp4',dir:false,size:1,time:1},
@@ -68,7 +70,11 @@ assert.equal(typeOf('libtest.so.bak'),'bak');
 assert.equal(typeOf('harmony_app.hap'),'hap');
 assert.equal(typeOf('update_pack.iap'),'iap');
 assert.equal(typeOf('iOS安装包.ipa'),'ipa');
+assert.equal(typeOf('setup.exe'),'exe');
+assert.equal(typeOf('driver.exe'),'exe');
+assert.equal(typeOf('SETUP.EXE'),'exe');
 assert.equal(typeOf('app.hap.bak'),'bak');
+assert.equal(typeOf('app.exe.bak'),'bak');
 assert.equal(typeOf('photo.jpg'),'image');
 assert.equal(typeOf('music.mp3'),'audio');
 assert.equal(typeOf('clip.mp4'),'video');
@@ -78,7 +84,7 @@ assert.equal(typeOf('part.001'),'file');
 assert.equal(typeOf('app-release.apk'),'apk');
 assert.equal(typeOf('splits.apks'),'apks');
 assert.equal(w.eval('window.__test.fileType({name:"x",dir:true})'),'folder');
-pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin/hap/iap/ipa 与图片、音频、视频、文本、未知、分卷兜底正确');
+pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin/hap/iap/ipa/exe 与图片、音频、视频、文本、未知、分卷兜底正确，后缀大小写不敏感，.bak 优先级更高');
 
 // 2) 富图标 SVG：特征颜色与徽标文字
 const iconOf=n=>w.eval(`window.__test.icon(${JSON.stringify(n)})`);
@@ -107,7 +113,10 @@ const iapSvg=iconOf('iap');
 assert(iapSvg.includes('#00838f')&&iapSvg.includes('>IAP<')&&iapSvg.includes('M12 6.4v3'),'iap teal badge with install arrow and IAP text');
 const ipaSvg=iconOf('ipa');
 assert(ipaSvg.includes('#d4dae1')&&ipaSvg.includes('>IPA<')&&ipaSvg.includes('#2c3945'),'ipa silver badge with dark install arrow and IPA text');
-pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头及媒体配色齐备，zip 别名渲染纸箱');
+const exeSvg=iconOf('exe');
+assert(exeSvg.includes('#0078d4')&&exeSvg.includes('>EXE<'),'exe windows-blue badge with EXE text');
+assert((exeSvg.match(/<rect /g)||[]).length>=5&&(exeSvg.match(/rx="0.6"/g)||[]).length===4,'exe four white window panes over the blue badge');
+pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口及媒体配色齐备，zip 别名渲染纸箱');
 
 // 3) 列表渲染：每行图标节点与类型类名
 const expectIcon=(name,cls)=>{const h=holder(name);assert(h,'icon holder '+name);assert(h.classList.contains(cls),'class '+cls+' for '+name);assert(h.querySelector('svg'),'svg in '+name);return h;};
@@ -125,6 +134,8 @@ expectIcon('firmware.bin','bin');
 expectIcon('harmony_app.hap','hap');
 expectIcon('update_pack.iap','iap');
 expectIcon('iOS安装包.ipa','ipa');
+expectIcon('setup.exe','exe');
+expectIcon('driver.exe','exe');
 expectIcon('photo.jpg','image');
 expectIcon('music.mp3','audio');
 expectIcon('clip.mp4','video');
@@ -136,7 +147,7 @@ const apksHolder=expectIcon('splits.apks','apks');
 assert(apksHolder.classList.contains('appBadgeHost'),'apks badge host');
 const folderHolder=holder('相册');
 assert(folderHolder&&folderHolder.classList.contains('folder')&&folderHolder.querySelector('svg'),'folder icon node');
-pass('文件列表为每种类型渲染带类型类名的图标节点（含 hap/iap/ipa 安装包），apks 为角标宿主');
+pass('文件列表为每种类型渲染带类型类名的图标节点（含 hap/iap/ipa 安装包与 exe 可执行文件），apks 为角标宿主');
 
 // 4) APK 真实软件图标：懒加载后整格替换为图片
 await wait(()=>{const h=holder('app-release.apk');return h&&h.querySelector('img')&&!h.querySelector('svg');},'apk real icon');

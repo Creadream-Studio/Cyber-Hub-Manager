@@ -19,8 +19,9 @@ audio, video, text, unknown and split-part fallbacks), rich SVG icon markup,
 list row icon nodes, real .apk icon replacement, .apks android robot plus
 badge overlay, apkIcon RPC arguments, front-end cache on re-render, and Open
 With category gating. 0.1.59 adds so (purple gear badge), bin (dark slate
-with green binary digits) and the installer badges hap (HarmonyOS blue with
-cyan orbit), iap (teal with install arrow) and ipa (silver with dark arrow)
+with green binary digits), the installer badges hap (HarmonyOS blue with
+cyan orbit), iap (teal with install arrow), ipa (silver with dark arrow)
+and exe (Microsoft blue with a white four-pane window plus EXE badge)
 coverage.
 
 performance-profile.cjs counts full-buffer reads, line-mark visits and editor
