@@ -5,7 +5,7 @@ w.document.write(fs.readFileSync(path.join(assets,'app.html'),'utf8').replace(/<
 // 与 ui-smoke 同形的原生桥 mock，补齐 openWithApps / openWithLaunch / hexView / terminalOpen。
 w.eval(`(()=>{
  const root='/storage/emulated/0',now=1792250000000;
- const files=[{name:'sample.apk',path:root+'/sample.apk',dir:false,size:340000,time:now},{name:'notes.txt',path:root+'/notes.txt',dir:false,size:200,time:now},{name:'photo.jpg',path:root+'/photo.jpg',dir:false,size:9000,time:now},{name:'run.sh',path:root+'/run.sh',dir:false,size:60,time:now}];
+ const files=[{name:'sample.apk',path:root+'/sample.apk',dir:false,size:340000,time:now},{name:'notes.txt',path:root+'/notes.txt',dir:false,size:200,time:now},{name:'photo.jpg',path:root+'/photo.jpg',dir:false,size:9000,time:now},{name:'run.sh',path:root+'/run.sh',dir:false,size:60,time:now},{name:'blob.bin',path:root+'/blob.bin',dir:false,size:64,time:now}];
  window.__calls=[];
  window.CyberNative={request(id,action,raw){const a=JSON.parse(raw);window.__calls.push({action,args:a});setTimeout(()=>{let data;try{
   switch(action){
@@ -13,6 +13,7 @@ w.eval(`(()=>{
    case'disk':data={total:237888888888,free:170000000000};break;
    case'list':data=files.map(x=>({...x,total:237888888888,free:170000000000}));break;
    case'resolve':data=a.path;break;
+   case'read':if(/\.bin$/i.test(a.path||''))throw Error('二进制文件：无法作为文本打开，请在「打开方式」中选择十六进制查看器或其他应用');data={id:'doc1',text:'hello',name:String(a.path||'').split('/').pop(),path:a.path,binaryXml:false};break;
    case'openWithApps':data={mime:'text/plain',suggest:[{label:'查看',pkg:'com.test.viewer',cls:'com.test.viewer.ViewActivity',icon:''}],text:[{label:'编辑器 A',pkg:'com.test.editor',cls:'com.test.editor.Editor',icon:''},{label:'编辑器 B',pkg:'com.test.editorb',cls:'com.test.editorb.Editor',icon:''}],image:[{label:'相册',pkg:'com.test.gallery',cls:'com.test.gallery.Photo',icon:''}],video:[{label:'播放器',pkg:'com.test.player',cls:'com.test.player.Video',icon:''}],audio:[]};break;
    case'openWithLaunch':data=true;break;
    case'hexView':{const off=Math.max(0,a.offset||0),len=Math.min(a.length||4096,64);let hex='',ascii='';for(let i=0;i<len;i++){const v=(off+i)&0xff;hex+=v.toString(16).padStart(2,'0');ascii+=(v>=32&&v<127)?String.fromCharCode(v):'.';}data={path:a.path,name:a.path.split('/').pop(),size:128,offset:off,length:len,hex,ascii};break;}
@@ -23,8 +24,8 @@ w.eval(`(()=>{
   window.receive({id,ok:true,data});
  }catch(e){window.receive({id,ok:false,error:e.message});}},5);}};
 })();`);
-for(const file of ['boot.js','vendor/codemirror.js','vendor/clike.js','vendor/xml.js','vendor/searchcursor.js','app.js'])w.eval(file==='app.js'?fs.readFileSync(path.join(assets,file),'utf8').replace('\ninit();','\nwindow.__test={state,pref,fileActions,openWithDialog};\ninit();'):fs.readFileSync(path.join(assets,file),'utf8'));
-const sleep=()=>new Promise(r=>setTimeout(r,30));const evaluate=s=>w.eval(s.replace(/\bstate\b/g,'window.__test.state').replace(/\bpref\b/g,'window.__test.pref').replace(/\bfileActions\b/g,'window.__test.fileActions').replace(/\bopenWithDialog\b/g,'window.__test.openWithDialog'));
+for(const file of ['boot.js','vendor/codemirror.js','vendor/clike.js','vendor/xml.js','vendor/searchcursor.js','app.js'])w.eval(file==='app.js'?fs.readFileSync(path.join(assets,file),'utf8').replace('\ninit();','\nwindow.__test={state,pref,fileActions,openWithDialog,openFile};\ninit();'):fs.readFileSync(path.join(assets,file),'utf8'));
+const sleep=()=>new Promise(r=>setTimeout(r,30));const evaluate=s=>w.eval(s.replace(/\bstate\b/g,'window.__test.state').replace(/\bpref\b/g,'window.__test.pref').replace(/\bfileActions\b/g,'window.__test.fileActions').replace(/\bopenWithDialog\b/g,'window.__test.openWithDialog').replace(/\bopenFile\b/g,'window.__test.openFile'));
 async function wait(fn){for(let i=0;i<120;i++){if(fn())return;await sleep();}throw Error('Timed out waiting for DOM');}
 let count=0;const pass=n=>{count++;console.log('PASS',n)};
 function button(text,root=w.document){const b=[...root.querySelectorAll('button')].find(x=>x.textContent.trim()===text||x.getAttribute('aria-label')===text);if(!b)throw Error('Button not found: '+text);b.click();return b;}
@@ -132,6 +133,28 @@ assert.equal(rows.length,8,'64 mock bytes produce 8 rows of 8 bytes');
 assert(/ · 0x/.test(w.document.querySelector('#hexPos').textContent),'position label shows hex offset');
 assert(w.document.querySelector('.hexNav'),'navigation buttons present');
 pass('hex viewer tool page renders paged rows');
+
+// 8) 轻点二进制文件（read 报「二进制文件…」）直接弹出「打开方式…」而非死胡同报错
+const hexCalls0=w.__calls.filter(c=>c.action==='hexView').length;
+evaluate("openFile(state.panes[0].items.find(x=>x.name==='blob.bin'))");
+await wait(()=>w.document.querySelector('.owDialog'));
+assert(!w.document.body.textContent.includes('无法完成'),'binary tap shows no dead-end alert');
+assert.equal(w.document.querySelector('#toast').textContent,'二进制文件，请选择打开方式','hint toast explains the dialog');
+assert.equal(w.document.querySelector('#toast').style.display,'block','hint toast visible');
+assert(gridItem('十六进制').disabled===false,'hex tile enabled for binary file');
+gridItem('十六进制').click();
+await wait(()=>{const calls=w.__calls.filter(c=>c.action==='hexView');return calls.length>hexCalls0&&calls[calls.length-1].args.path==='/storage/emulated/0/blob.bin'&&!!(w.document.querySelector('.hexBody')&&w.document.querySelector('.hexBody').textContent.length>0);});
+pass('binary tap falls back to open-with dialog; hex viewer opens it');
+
+// 9) 打开方式中明确选「编辑文本」仍保留解释性报错（不静默改道）
+evaluate("openFile(state.panes[0].items.find(x=>x.name==='blob.bin'))");
+await wait(()=>w.document.querySelector('.owDialog'));
+gridItem('编辑文本').click();
+await wait(()=>w.document.body.textContent.includes('无法完成'));
+assert(w.document.body.textContent.includes('二进制文件'),'explicit text edit explains the binary refusal');
+button('确定');
+await wait(()=>!w.document.querySelector('#modalLayer .dialog'));
+pass('explicit edit-text on binary keeps the explanatory error');
 
 assert.deepEqual(errors,[]);pass('no JavaScript errors in DOM harness');
 console.log('ALL '+count+' OPEN-WITH CHECKS PASSED (layout and Android WebView not emulated)');await w.happyDOM.close();})().catch(e=>{console.error(e);process.exit(1)});

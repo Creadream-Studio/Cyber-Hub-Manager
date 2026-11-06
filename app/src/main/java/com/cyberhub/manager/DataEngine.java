@@ -175,7 +175,7 @@ public final class DataEngine {
  }
  JSONObject read(JSONObject a)throws Exception{
   File f=resolve(a);byte[] b;if(RestrictedPaths.isRestricted(f,activity.getPackageName())){b=SafAccess.readFile(activity,f,FileOps.MAX_TEXT);if(b==null)b=ElevatedAccess.readFile(activity,f,FileOps.MAX_TEXT);if(b==null)throw new IOException("无法读取 Android/data 文件。请到「设置 → 启动 → 授权 Android/data」选择该文件夹（无需 Root），或授予 Shizuku/Root 权限后重试。");}else b=FileOps.read(f,FileOps.MAX_TEXT);Doc d=new Doc();d.file=f;d.archive=a.optString("archive");d.entry=a.optString("entry");d.modified=f.lastModified();String text;
-  if(Axml.isBinary(b)){d.axml=new Axml();text=d.axml.decode(b);}else{for(int n=0;n<Math.min(b.length,2048);n++)if(b[n]==0)throw new IOException("二进制文件：请使用 APK、DEX 或资源工具");text=new String(b,StandardCharsets.UTF_8);}
+  if(Axml.isBinary(b)){d.axml=new Axml();text=d.axml.decode(b);}else{for(int n=0;n<Math.min(b.length,2048);n++)if(b[n]==0)throw new IOException("二进制文件：无法作为文本打开，请在「打开方式」中选择十六进制查看器或其他应用");text=new String(b,StandardCharsets.UTF_8);}
   String id="doc"+(++docCounter);documents.put(id,d);return new JSONObject().put("id",id).put("text",text).put("name",f.getName()).put("path",f.getPath()).put("binaryXml",d.axml!=null);
  }
  JSONObject save(JSONObject a)throws Exception{
