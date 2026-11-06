@@ -105,7 +105,7 @@ final class FtpShareServer implements Closeable {
         try (Socket control = socket) {
             BufferedReader in = new BufferedReader(new InputStreamReader(control.getInputStream(), StandardCharsets.UTF_8));
             BufferedWriter out = new BufferedWriter(new OutputStreamWriter(control.getOutputStream(), StandardCharsets.UTF_8));
-            reply(out, 220, "赛博中枢管家 FTP 就绪");
+            reply(out, 220, "CH管理器 FTP 就绪");
             if (throttled(ip)) { reply(out, 421, "尝试次数过多，请稍后重试"); return; }
             File cwd = root;
             boolean user = false, authed = false;
@@ -273,7 +273,7 @@ final class FtpShareServer implements Closeable {
                         } catch (Exception e) { reply(out, 550, "找不到文件"); }
                         break;
                     }
-                    case "STAT": reply(out, 211, "赛博中枢管家 FTP"); break;
+                    case "STAT": reply(out, 211, "CH管理器 FTP"); break;
                     case "HELP": reply(out, 214, "支持 LIST, NLST, MLSD, RETR, SIZE, MDTM, MLST, CWD, PWD"); break;
                     case "REST": reply(out, 502, "不支持断点续传"); break;
                     case "STOR":

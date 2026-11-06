@@ -26,13 +26,13 @@
     document.body.classList.remove('busy');
     var toolbar = document.getElementById('toolbar');
     var content = document.getElementById('content');
-    toolbar.textContent = '赛博中枢管家';
+    toolbar.textContent = 'CH管理器';
     content.textContent = '';
     var box = element('div');
     box.className = 'bootStatus';
     box.appendChild(element('h2', '无法启动'));
     box.appendChild(element('p', '请重试。如果再次发生，请分享以下错误详情。'));
-    var details = element('pre', '赛博中枢管家 0.1.18\n' + message + '\n\n' + navigator.userAgent);
+    var details = element('pre', 'CH管理器 0.1.18\n' + message + '\n\n' + navigator.userAgent);
     details.className = 'bootDetails';
     box.appendChild(details);
     var retry = element('button', '重试');

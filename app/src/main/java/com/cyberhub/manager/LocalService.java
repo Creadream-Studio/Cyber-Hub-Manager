@@ -316,7 +316,7 @@ public final class LocalService {
                 File[] files = f.listFiles();
                 if (files == null) throw new IOException("文件夹不可用");
                 Arrays.sort(files, Comparator.comparing(File::getName));
-                StringBuilder html = new StringBuilder("<!doctype html><meta name=viewport content='width=device-width'><title>赛博中枢管家</title><style>body{background:#303030;color:#ddd;font:16px system-ui;padding:24px}a{color:#70bfff}li{padding:12px}</style><h1>赛博中枢管家</h1><p>只读共享文件夹</p><ul>");
+                StringBuilder html = new StringBuilder("<!doctype html><meta name=viewport content='width=device-width'><title>CH管理器</title><style>body{background:#303030;color:#ddd;font:16px system-ui;padding:24px}a{color:#70bfff}li{padding:12px}</style><h1>CH管理器</h1><p>只读共享文件夹</p><ul>");
                 if (!rel.isEmpty()) html.append("<li><a href='?code=").append(URLEncoder.encode(code, "UTF-8")).append("'>主页</a></li>");
                 for (File c : files) {
                     if (FilesSupport.symlink(c)) continue;
@@ -337,7 +337,7 @@ public final class LocalService {
                     case "initialize":
                         result = new JSONObject().put("protocolVersion", "2025-03-26")
                                 .put("capabilities", new JSONObject().put("tools", new JSONObject()))
-                                .put("serverInfo", new JSONObject().put("name", "赛博中枢管家").put("version", "0.1.0"));
+                                .put("serverInfo", new JSONObject().put("name", "CH管理器").put("version", "0.1.0"));
                         break;
                     case "ping":
                         result = new JSONObject();

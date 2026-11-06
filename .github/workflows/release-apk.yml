@@ -1,4 +1,4 @@
-# Cyber Hub Manager 手动发布工作流（仿 GitCove）
+# CH Manager（CH管理器）手动发布工作流（仿 GitCove）
 # 用法：GitHub 仓库页 → Actions → "Release APK (手动)" → Run workflow
 #
 # 功能：
@@ -97,13 +97,13 @@ jobs:
       - name: 整理产物
         run: |
           APK=$(ls dist/Cyber-Hub-Manager-*.apk | head -1)
-          mv "$APK" "dist/Cyber-Hub-Manager-${{ steps.ver.outputs.version }}-universal.apk"
+          mv "$APK" "dist/CH-Manager-${{ steps.ver.outputs.version }}-universal.apk"
           ls -la dist/
 
       - name: 上传构建产物（artifact 备份）
         uses: actions/upload-artifact@v4
         with:
-          name: Cyber-Hub-Manager-APK-${{ steps.ver.outputs.tag }}
+          name: CH-Manager-APK-${{ steps.ver.outputs.tag }}
           path: dist/*.apk
           if-no-files-found: error
 
@@ -116,25 +116,25 @@ jobs:
         run: |
           # 用数组 + 规范引号，避免含空格的标题被拆分成多个参数
           EXTRA_ARGS=()
-          # 命名规则：预发布 → 「Cyber Hub Manager vX.Y.Z Beta」；正式版 → 「Cyber Hub Manager vX.Y.Z」。
+          # 命名规则：预发布 → 「CH Manager vX.Y.Z Beta」；正式版 → 「CH Manager vX.Y.Z」。
           # 转正时把下面的 PRERELEASE 改为 false：不再标记 Pre-release，标题自动去掉 Beta。
           PRERELEASE=true
           if [ -n "$TITLE" ]; then
             EXTRA_ARGS+=(--title "$TITLE")
           elif [ "$PRERELEASE" = "true" ]; then
-            EXTRA_ARGS+=(--title "Cyber Hub Manager $TAG Beta")
+            EXTRA_ARGS+=(--title "CH Manager $TAG Beta")
           else
-            EXTRA_ARGS+=(--title "Cyber Hub Manager $TAG")
+            EXTRA_ARGS+=(--title "CH Manager $TAG")
           fi
           if [ "$DRAFT" = "true" ]; then EXTRA_ARGS+=(--draft); fi
           if [ "$PRERELEASE" = "true" ]; then EXTRA_ARGS+=(--prerelease); fi
 
           BODY=$(cat <<'EOF'
-          ## Cyber Hub Manager 测试版（Pre-release）
+          ## CH Manager（CH管理器）测试版（Pre-release）
 
           早期测试版本，功能仍在快速迭代，遇到问题欢迎提 issue。
 
-          - `Cyber-Hub-Manager-*.apk`：全架构通用包（单 APK，各 ABI 通用）
+          - `CH-Manager-*.apk`：全架构通用包（单 APK，各 ABI 通用）
           - 安装要求：Android 8.0（API 26）及以上
           - 签名：仓库内置 development keystore，各版本签名一致，可直接覆盖安装升级
           EOF

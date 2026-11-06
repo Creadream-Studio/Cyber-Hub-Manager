@@ -150,7 +150,7 @@ public final class DexEngine {
      ZipEntry ze;while((ze=zin.getNextEntry())!=null){String name=ze.getName();if(ze.isDirectory()||name.equalsIgnoreCase("META-INF/MANIFEST.MF")||!names.add(name))continue;zout.putNextEntry(new ZipEntry(name));byte[] buf=new byte[65536];int r;while((r=zin.read(buf))!=-1)zout.write(buf,0,r);zout.closeEntry();if(name.endsWith(".class"))classes++;}
     }
    }
-   ZipEntry mf=new ZipEntry("META-INF/MANIFEST.MF");zout.putNextEntry(mf);zout.write("Manifest-Version: 1.0\r\nCreated-By: Cyber Hub Manager\r\n\r\n".getBytes(StandardCharsets.UTF_8));zout.closeEntry();
+   ZipEntry mf=new ZipEntry("META-INF/MANIFEST.MF");zout.putNextEntry(mf);zout.write("Manifest-Version: 1.0\r\nCreated-By: CH Manager\r\n\r\n".getBytes(StandardCharsets.UTF_8));zout.closeEntry();
   }catch(Exception e){jar.delete();throw e;}finally{FileOps.deleteTree(work);}
   return new JSONObject().put("path",jar.getPath()).put("classes",classes).put("dexDir",dexDir==null?"":dexDir.getPath()).put("inputs",inputs.size());
  }

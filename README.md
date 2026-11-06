@@ -1,4 +1,4 @@
-# Cyber Hub Manager — 0.1.14 development build
+# CH Manager (CH管理器) — 0.1.14 development build
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 

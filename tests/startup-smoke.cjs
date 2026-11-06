@@ -16,7 +16,7 @@ if (!process.argv[2]) {
   const w = new Window({ url: 'https://appassets.androidplatform.net/assets/app.html', settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
   const assets = path.resolve(__dirname, '../app/src/main/assets');
   w.document.write(fs.readFileSync(path.join(assets, 'app.html'), 'utf8').replace(/<script[^>]*>[\s\S]*?<\/script>/g, '').replace(/<link[^>]*>/g, ''));
-  assert(w.document.querySelector('#toolbar').textContent.includes('Cyber Hub Manager'));
+  assert(w.document.querySelector('#toolbar').textContent.includes('CH管理器'));
   assert(w.document.querySelector('#content').textContent.includes('Opening your workspace'));
   for (const key of ['document', 'Element', 'Node']) globalThis[key] = w[key];
   globalThis.window = w;

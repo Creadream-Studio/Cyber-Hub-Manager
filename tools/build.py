@@ -40,7 +40,7 @@ cp=os.pathsep.join(map(str,[api,*LIB]))
 run(java('-jar',ecj,'-11','-proc:none','-nowarn','-encoding','UTF-8','-classpath',cp,'-d',classes,gen/'com/cyberhub/manager/R.java',*sorted((P/'app/src/main/java').rglob('*.java'))))
 key=P/'app/src/main/assets/development-signing.p12'
 if not key.exists():
- run(['keytool','-J-Dkeystore.pkcs12.legacy','-genkeypair','-keystore',key,'-storetype','PKCS12','-storepass','cyberhub-development','-keypass','cyberhub-development','-alias','cyberhub-dev','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Cyber Hub Manager Development, O=Cyber Hub, C=IN'])
+ run(['keytool','-J-Dkeystore.pkcs12.legacy','-genkeypair','-keystore',key,'-storetype','PKCS12','-storepass','cyberhub-development','-keypass','cyberhub-development','-alias','cyberhub-dev','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=CH Manager Development, O=CH Manager, C=IN'])
 classjar=B/'app-classes.jar'
 with zipfile.ZipFile(classjar,'w',zipfile.ZIP_DEFLATED) as z:
  for f in classes.rglob('*.class'):z.write(f,f.relative_to(classes))
