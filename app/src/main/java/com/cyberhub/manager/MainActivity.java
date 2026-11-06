@@ -397,8 +397,9 @@ public class MainActivity extends Activity implements PaneController.Host {
                             String error=null;
                             try{engine.call("create",new JSONObject().put("path",active.path).put("name",name).put("folder",folder));}
                             catch(Throwable t){error=t.getMessage();}
+                            final String err=error;
                             runOnUiThread(()->{
-                                if(error!=null)Ui.toast(this,"创建失败："+error);
+                                if(err!=null)Ui.toast(this,"创建失败："+err);
                                 active.refresh();
                             });
                         });
