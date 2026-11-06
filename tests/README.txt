@@ -25,6 +25,13 @@ exe (Microsoft blue with a white four-pane window plus EXE badge) and deb
 (Debian pink with a white spiral swirl plus DEB badge) coverage, and turns
 the .apk placeholder/fallback icon into a deep-green software badge (white
 robot head plus APK text) while keeping the real .apk icon lazy replacement.
+The 0.1.59 supplement adds the document badges pdf (red with a white
+dog-ear page plus PDF text), doc (Word blue with W), xls (Excel green with X,
+also claimed by csv while csv keeps its text editing entries) and ppt
+(PowerPoint orange-red with P), and maps .xapk onto the .apks handling:
+android robot plus the real base-APK icon badge (DataEngine.iconForPath
+bundle extraction extended to .xapk), with the parse-failure fallback
+keeping the robot and no badge overlay.
 
 performance-profile.cjs counts full-buffer reads, line-mark visits and editor
 refreshes on a 15,003-line file. UI_SCRIPT can point to an older app.js for

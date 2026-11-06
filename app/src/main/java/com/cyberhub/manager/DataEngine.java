@@ -256,7 +256,8 @@ public final class DataEngine {
   File f=new File(path);String key=path+"|"+f.length()+"|"+f.lastModified();
   String hit=pathIconCache.get(key);if(hit!=null)return hit;
   String value=archiveApkIcon(f);
-  if(value.isEmpty()&&f.getName().toLowerCase(Locale.ROOT).endsWith(".apks")){File base=bundleBaseApk(f);if(base!=null)value=archiveApkIcon(base);}
+  String lower=f.getName().toLowerCase(Locale.ROOT);
+  if(value.isEmpty()&&(lower.endsWith(".apks")||lower.endsWith(".xapk"))){File base=bundleBaseApk(f);if(base!=null)value=archiveApkIcon(base);}
   pathIconCache.put(key,value);
   while(pathIconCache.size()>160)pathIconCache.remove(pathIconCache.keySet().iterator().next());
   return value;

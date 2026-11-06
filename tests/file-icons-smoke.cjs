@@ -28,6 +28,13 @@ w.eval(`(()=>{
     {name:'driver.exe',path:'${root}/driver.exe',dir:false,size:1,time:1},
     {name:'package.deb',path:'${root}/package.deb',dir:false,size:1,time:1},
     {name:'google-chrome.deb',path:'${root}/google-chrome.deb',dir:false,size:1,time:1},
+    {name:'manual.pdf',path:'${root}/manual.pdf',dir:false,size:1,time:1},
+    {name:'简历.docx',path:'${root}/简历.docx',dir:false,size:1,time:1},
+    {name:'budget.xlsx',path:'${root}/budget.xlsx',dir:false,size:1,time:1},
+    {name:'data.csv',path:'${root}/data.csv',dir:false,size:1,time:1},
+    {name:'slides.pptx',path:'${root}/slides.pptx',dir:false,size:1,time:1},
+    {name:'game.xapk',path:'${root}/game.xapk',dir:false,size:1,time:1},
+    {name:'broken.xapk',path:'${root}/broken.xapk',dir:false,size:1,time:1},
     {name:'photo.jpg',path:'${root}/photo.jpg',dir:false,size:1,time:1},
     {name:'music.mp3',path:'${root}/music.mp3',dir:false,size:1,time:1},
     {name:'clip.mp4',path:'${root}/clip.mp4',dir:false,size:1,time:1},
@@ -37,7 +44,7 @@ w.eval(`(()=>{
     {name:'app-release.apk',path:'${root}/app-release.apk',dir:false,size:1,time:1},
     {name:'splits.apks',path:'${root}/splits.apks',dir:false,size:1,time:1}
    ];data.total=1;data.free=1;break;
-   case'apkIcon':data='data:image/png;base64,iVBORw0KGgo=';break;
+   case'apkIcon':data=String(a.path||'').endsWith('broken.xapk')?'':'data:image/png;base64,iVBORw0KGgo=';break;
    case'listThumb':data='';break;
    default:data=true;
   }
@@ -81,6 +88,21 @@ assert.equal(typeOf('APP.DEB'),'deb');
 assert.equal(typeOf('app.hap.bak'),'bak');
 assert.equal(typeOf('app.exe.bak'),'bak');
 assert.equal(typeOf('app.deb.bak'),'bak');
+assert.equal(typeOf('manual.pdf'),'pdf');
+assert.equal(typeOf('MANUAL.PDF'),'pdf');
+assert.equal(typeOf('简历.docx'),'doc');
+assert.equal(typeOf('letter.doc'),'doc');
+assert.equal(typeOf('LETTER.DOC'),'doc');
+assert.equal(typeOf('budget.xlsx'),'xls');
+assert.equal(typeOf('ledger.xls'),'xls');
+assert.equal(typeOf('data.csv'),'xls');
+assert.equal(typeOf('DATA.CSV'),'xls');
+assert.equal(typeOf('slides.pptx'),'ppt');
+assert.equal(typeOf('deck.ppt'),'ppt');
+assert.equal(typeOf('game.xapk'),'apks');
+assert.equal(typeOf('GAME.XAPK'),'apks');
+assert.equal(typeOf('manual.pdf.bak'),'bak');
+assert.equal(typeOf('game.xapk.bak'),'bak');
 assert.equal(typeOf('photo.jpg'),'image');
 assert.equal(typeOf('music.mp3'),'audio');
 assert.equal(typeOf('clip.mp4'),'video');
@@ -92,7 +114,7 @@ assert.equal(typeOf('APP.APK'),'apk');
 assert.equal(typeOf('app.apk.bak'),'bak');
 assert.equal(typeOf('splits.apks'),'apks');
 assert.equal(w.eval('window.__test.fileType({name:"x",dir:true})'),'folder');
-pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin/hap/iap/ipa/exe/deb/apk 与图片、音频、视频、文本、未知、分卷兜底正确，后缀大小写不敏感，.bak 优先级更高');
+pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin/hap/iap/ipa/exe/deb/pdf/doc/xls/ppt 与 apks(xapk)、图片、音频、视频、文本、未知、分卷兜底正确，后缀大小写不敏感，.bak 优先级更高');
 
 // 2) 富图标 SVG：特征颜色与徽标文字
 const iconOf=n=>w.eval(`window.__test.icon(${JSON.stringify(n)})`);
@@ -131,7 +153,16 @@ const apkSvg=iconOf('apk');
 assert(apkSvg.includes('#34a853')&&apkSvg.includes('>APK<'),'apk deep-green software badge with APK text');
 assert(apkSvg.includes('a4 4 0 0 1 8 0z')&&apkSvg.includes('stroke-linecap="round"'),'apk white robot head dome with antennae strokes');
 assert((apkSvg.match(/<circle /g)||[]).length===2,'apk two eye cutout circles');
-pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口、deb 螺旋卷曲、apk 机器人头软件徽标及媒体配色齐备，zip 别名渲染纸箱');
+const pdfSvg=iconOf('pdf');
+assert(pdfSvg.includes('#c5221e')&&pdfSvg.includes('>PDF<')&&pdfSvg.includes('M8.4 6.2h4.2'),'pdf red badge with white dog-ear page and PDF text');
+assert((pdfSvg.match(/#c5221e/g)||[]).length>=2,'pdf fold cut in badge red');
+const docSvg=iconOf('doc');
+assert(docSvg.includes('#2b579a')&&docSvg.includes('>W<')&&docSvg.includes('M12.6 6.2v3.2h3.2z'),'doc word-blue badge with dog-ear page and W text');
+const xlsSvg=iconOf('xls');
+assert(xlsSvg.includes('#217346')&&xlsSvg.includes('>X<'),'xls excel-green badge with X text');
+const pptSvg=iconOf('ppt');
+assert(pptSvg.includes('#c43e1c')&&pptSvg.includes('>P<'),'ppt orange-red badge with P text');
+pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口、deb 螺旋卷曲、apk 机器人头软件徽标、pdf/doc/xls/ppt 文档折角页字母徽标及媒体配色齐备，zip 别名渲染纸箱');
 
 // 3) 列表渲染：每行图标节点与类型类名
 const expectIcon=(name,cls)=>{const h=holder(name);assert(h,'icon holder '+name);assert(h.classList.contains(cls),'class '+cls+' for '+name);assert(h.querySelector('svg'),'svg in '+name);return h;};
@@ -153,6 +184,13 @@ expectIcon('setup.exe','exe');
 expectIcon('driver.exe','exe');
 expectIcon('package.deb','deb');
 expectIcon('google-chrome.deb','deb');
+expectIcon('manual.pdf','pdf');
+expectIcon('简历.docx','doc');
+expectIcon('budget.xlsx','xls');
+expectIcon('data.csv','xls');
+expectIcon('slides.pptx','ppt');
+const xapkHolder=expectIcon('game.xapk','apks');
+assert(xapkHolder.classList.contains('appBadgeHost'),'xapk badge host');
 expectIcon('photo.jpg','image');
 expectIcon('music.mp3','audio');
 expectIcon('clip.mp4','video');
@@ -164,25 +202,35 @@ const apksHolder=expectIcon('splits.apks','apks');
 assert(apksHolder.classList.contains('appBadgeHost'),'apks badge host');
 const folderHolder=holder('相册');
 assert(folderHolder&&folderHolder.classList.contains('folder')&&folderHolder.querySelector('svg'),'folder icon node');
-pass('文件列表为每种类型渲染带类型类名的图标节点（含 hap/iap/ipa 安装包、exe 可执行文件、deb 软件包、apk 软件徽标占位），apks 为角标宿主');
+pass('文件列表为每种类型渲染带类型类名的图标节点（含 hap/iap/ipa 安装包、exe 可执行文件、deb 软件包、pdf/doc/xls/ppt 文档、apk 软件徽标占位），apks/xapk 为角标宿主');
 
 // 4) APK 真实软件图标：懒加载后整格替换为图片（加载前占位为绿色软件徽标）
 await wait(()=>{const h=holder('app-release.apk');return h&&h.querySelector('img')&&!h.querySelector('svg');},'apk real icon');
 assert(holder('app-release.apk').querySelector('img').src.startsWith('data:image/png;base64,'),'apk icon data url');
 pass('.apk 懒加载真实软件图标并整格替换（占位/失败回退为绿色软件徽标）');
 
-// 5) APKS 机器人 + 右下角小图标角标：svg 保留、img 叠加
+// 5) APKS / XAPK 机器人 + 右下角小图标角标：svg 保留、img 叠加；解析失败回退机器人
 await wait(()=>{const h=holder('splits.apks');return h&&h.querySelector('img.appBadge')&&h.querySelector('svg');},'apks badge');
 const bh=holder('splits.apks');
 assert(bh.querySelector('svg').innerHTML.includes('#3ddc84'),'robot kept under badge');
 assert(bh.querySelectorAll('img.appBadge').length===1,'single badge');
-pass('.apks 显示安卓机器人并在右下角叠加小软件图标');
+await wait(()=>{const h=holder('game.xapk');return h&&h.querySelector('img.appBadge')&&h.querySelector('svg');},'xapk badge');
+const xb=holder('game.xapk');
+assert(xb.querySelector('svg').innerHTML.includes('#3ddc84'),'robot kept under xapk badge');
+assert(xb.querySelectorAll('img.appBadge').length===1,'single xapk badge');
+await new Promise(r=>setTimeout(r,500));
+const broken=holder('broken.xapk');
+assert(broken&&broken.querySelector('svg')&&broken.querySelector('svg').innerHTML.includes('#3ddc84'),'parse failure falls back to robot');
+assert(!broken.querySelector('img.appBadge'),'no badge overlay on parse failure');
+pass('.apks/.xapk 显示安卓机器人并在右下角叠加小软件图标；解析失败不叠加角标、回退机器人');
 
-// 6) apkIcon RPC 参数：apk 与 apks 都请求，路径正确
+// 6) apkIcon RPC 参数：apk 与 apks/xapk 都请求，路径正确
 const iconCalls=calls('apkIcon');
 assert(iconCalls.some(c=>c.args.path===root+'/app-release.apk'),'apk rpc path');
 assert(iconCalls.some(c=>c.args.path===root+'/splits.apks'),'apks rpc path');
-pass('apkIcon RPC 对 .apk 与 .apks 均按文件路径调用');
+assert(iconCalls.some(c=>c.args.path===root+'/game.xapk'),'xapk rpc path');
+assert(iconCalls.some(c=>c.args.path===root+'/broken.xapk'),'broken xapk rpc path');
+pass('apkIcon RPC 对 .apk 与 .apks/.xapk 均按文件路径调用');
 
 // 7) 前端缓存：重复渲染不重复请求
 const before=iconCalls.length;
@@ -191,6 +239,7 @@ await wait(()=>w.document.querySelectorAll('.pane.active .file').length>1,'reren
 await new Promise(r=>setTimeout(r,120));
 assert(calls('apkIcon').length===before,'no duplicate apkIcon rpc');
 assert(holder('splits.apks').querySelectorAll('img.appBadge').length<=1,'badge not duplicated');
+assert(holder('game.xapk').querySelectorAll('img.appBadge').length<=1,'xapk badge not duplicated');
 pass('重复渲染命中前端缓存，不重复发起 apkIcon 请求');
 
 // 8) 打开方式分类：rar/zip 走「浏览压缩包」，APKS 用机器人图标
@@ -203,9 +252,13 @@ const ow001=owFor('part.001').find(i=>i.label==='浏览压缩包');
 assert(ow001&&ow001.ok===true,'001 keeps archive entry');
 const owApks=owFor('splits.apks').find(i=>i.label==='APKS 功能');
 assert(owApks&&owApks.ok===true&&String(owApks.glyph).includes('#3ddc84'),'apks category uses robot glyph');
+const owXapk=owFor('game.xapk').find(i=>i.label==='APKS 功能');
+assert(owXapk&&owXapk.ok===true&&String(owXapk.glyph).includes('#3ddc84'),'xapk enters apks category');
+const owCsv=owFor('data.csv').find(i=>i.label==='编辑文本');
+assert(owCsv&&owCsv.ok===true,'csv keeps text editing entry');
 const owTxt=owFor('note.txt').find(i=>i.label==='浏览压缩包');
 assert(!owTxt||owTxt.ok===false,'txt not archive');
-pass('打开方式：rar/zip 进入「浏览压缩包」分类，APKS 功能使用机器人图标');
+pass('打开方式：rar/zip 进入「浏览压缩包」分类，APKS 功能使用机器人图标，xapk 同入 APKS 分类，csv 保留文本编辑');
 
 console.log('TOTAL',count,'PASS');process.exit(errors.length?1:0);
 })().catch(e=>{console.error('FAIL',e.message);process.exit(1)});
