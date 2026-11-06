@@ -1,0 +1,168 @@
+# Cyber Hub Manager 手动发布工作流（仿 GitCove）
+# 用法：GitHub 仓库页 → Actions → "Release APK (手动)" → Run workflow
+#
+# 功能：
+#   1. 手动触发，构建已签名 APK（仓库内置 development keystore，各版本签名一致，可覆盖安装升级）
+#   2. 自动发布到 GitHub Releases（Draft/Pre-release 可选）
+#
+# 版本号来源：app/build.gradle 的 versionName（当前 0.1.59 / versionCode 55）。
+# 注意：tools/build.py 内部将 versionCode/versionName 写死为 55 / 0.1.59，
+#       发新版本时需同步更新 app/build.gradle 与 tools/build.py 两处。
+
+name: Release APK (手动)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release 标签（留空则自动取 versionName，如 v0.1.59）'
+        required: false
+        default: ''
+      release_title:
+        description: 'Release 标题（留空则用标签名）'
+        required: false
+        default: ''
+      draft:
+        description: '创建为 Draft（先检查再手动发布）'
+        type: boolean
+        required: false
+        default: false
+      run_tests:
+        description: '构建前跑冒烟测试（失败不阻塞发布）'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Android SDK 组件（platform 34 + build-tools 35.0.0）
+        run: |
+          sdkmanager() { "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "$@"; }
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-34" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+
+      - name: 安装 Node.js（UI 冒烟测试）
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 读取版本号
+        id: ver
+        run: |
+          VERSION=$(grep -oP "versionName\s*'\K[^']+" app/build.gradle | head -1)
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then TAG="v$VERSION"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "版本: $VERSION，标签: $TAG"
+
+      - name: 安装 Happy DOM 测试环境
+        if: ${{ github.event.inputs.run_tests == 'true' }}
+        run: |
+          mkdir -p ../toolchain/test-node
+          cd ../toolchain/test-node
+          [ -f package.json ] || npm init -y >/dev/null
+          npm install happy-dom@15.11.7 --no-audit --no-fund
+
+      - name: 冒烟测试（可选，失败不阻塞发布）
+        if: ${{ github.event.inputs.run_tests == 'true' }}
+        continue-on-error: true
+        run: |
+          node --check app/src/main/assets/app.js
+          node --check app/src/main/assets/boot.js
+          node tests/file-icons-smoke.cjs
+          node tests/open-with-ui-smoke.cjs
+          node tests/media-player-ui-smoke.cjs
+          python3 tests/run-core.py
+
+      - name: 构建签名 APK（ECJ + D8 + zipalign 16K + apksigner）
+        run: python3 tools/build.py
+
+      - name: 整理产物
+        run: |
+          APK=$(ls dist/Cyber-Hub-Manager-*.apk | head -1)
+          mv "$APK" "dist/Cyber-Hub-Manager-${{ steps.ver.outputs.version }}-universal.apk"
+          ls -la dist/
+
+      - name: 上传构建产物（artifact 备份）
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cyber-Hub-Manager-APK-${{ steps.ver.outputs.tag }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: 发布到 GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          TITLE: ${{ github.event.inputs.release_title }}
+          DRAFT: ${{ github.event.inputs.draft }}
+        run: |
+          # 用数组 + 规范引号，避免含空格的标题被拆分成多个参数
+          EXTRA_ARGS=()
+          # 命名规则：预发布 → 「Cyber Hub Manager vX.Y.Z Beta」；正式版 → 「Cyber Hub Manager vX.Y.Z」。
+          # 转正时把下面的 PRERELEASE 改为 false：不再标记 Pre-release，标题自动去掉 Beta。
+          PRERELEASE=true
+          if [ -n "$TITLE" ]; then
+            EXTRA_ARGS+=(--title "$TITLE")
+          elif [ "$PRERELEASE" = "true" ]; then
+            EXTRA_ARGS+=(--title "Cyber Hub Manager $TAG Beta")
+          else
+            EXTRA_ARGS+=(--title "Cyber Hub Manager $TAG")
+          fi
+          if [ "$DRAFT" = "true" ]; then EXTRA_ARGS+=(--draft); fi
+          if [ "$PRERELEASE" = "true" ]; then EXTRA_ARGS+=(--prerelease); fi
+
+          BODY=$(cat <<'EOF'
+          ## Cyber Hub Manager 测试版（Pre-release）
+
+          早期测试版本，功能仍在快速迭代，遇到问题欢迎提 issue。
+
+          - `Cyber-Hub-Manager-*.apk`：全架构通用包（单 APK，各 ABI 通用）
+          - 安装要求：Android 8.0（API 26）及以上
+          - 签名：仓库内置 development keystore，各版本签名一致，可直接覆盖安装升级
+          EOF
+          )
+
+          # 追加自上一个 Release（非草稿、非本版）以来的提交记录作为更新内容
+          PREV=$(gh api "repos/${{ github.repository }}/releases?per_page=30" \
+            --jq '[.[] | select(.draft == false and .tag_name != "'"$TAG"'")][0].tag_name // ""' 2>/dev/null || true)
+          if [ -n "$PREV" ]; then
+            LOG=$(gh api "repos/${{ github.repository }}/compare/$PREV...${{ github.sha }}" \
+              --jq '.commits[] | "- " + (.commit.message | split("\n")[0])' 2>/dev/null || true)
+            if [ -n "$LOG" ]; then
+              BODY="$BODY
+
+          ## 本版更新（$PREV 之后）
+
+          $LOG"
+            fi
+          fi
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG 已存在，追加产物"
+            gh release upload "$TAG" dist/*.apk --clobber
+          else
+            gh release create "$TAG" dist/*.apk \
+              "${EXTRA_ARGS[@]}" \
+              --notes "$BODY" \
+              --target "${{ github.sha }}"
+          fi
+
+          echo "发布完成：https://github.com/${{ github.repository }}/releases/tag/$TAG"
