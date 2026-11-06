@@ -7,6 +7,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.io.File;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -105,7 +106,7 @@ public final class PaneController {
 
     public void goUp(){
         if(path.equals("/"))return;
-        File parent=new java.io.File(path).getParentFile();
+        File parent=new File(path).getParentFile();
         navigate(parent==null?"/":parent.getPath());
     }
 

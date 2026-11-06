@@ -18,6 +18,8 @@
     </activity>
     <activity android:name=".player.MediaPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" android:launchMode="singleTop" />
     <activity android:name=".preview.HtmlPreviewActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+    <activity android:name=".ApkInfoActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" />
+    <activity android:name=".TextEditorActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" android:windowSoftInputMode="adjustResize" />
     <provider android:name=".ShareProvider" android:authorities="com.cyberhub.manager.files" android:exported="false" android:grantUriPermissions="true" />
     <provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="com.cyberhub.manager.shizuku" android:enabled="true" android:exported="true" android:multiprocess="false" android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <service android:name=".color.ColorPickerService" android:enabled="true" android:exported="false" android:foregroundServiceType="mediaProjection" />

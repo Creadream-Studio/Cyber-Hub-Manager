@@ -29,7 +29,7 @@ public final class Ui {
             case "jpg":case "jpeg":case "png":case "gif":case "webp":case "bmp":case "svg":case "ico":case "heic":case "avif":case "tif":case "tiff":case "dng":return "image";
             case "mp3":case "wav":case "flac":case "ogg":case "opus":case "m4a":case "aac":case "wma":case "amr":case "mid":case "ape":case "mka":case "ac3":case "dts":return "audio";
             case "mp4":case "mkv":case "avi":case "mov":case "webm":case "flv":case "wmv":case "ts":case "3gp":case "rmvb":case "m4v":case "mpg":return "video";
-            case "java":case "smali":case "kt":case "c":case "cpp":case "h":case "hpp":case "py":case "sh":case "js":case "ts":case "css":case "json":case "gradle":case "xml":case "html":case "htm":case "php":case "rs":case "go":case "yaml":case "yml":case "ini":case "properties":return "code";
+            case "java":case "smali":case "kt":case "c":case "cpp":case "h":case "hpp":case "py":case "sh":case "js":case "css":case "json":case "gradle":case "xml":case "html":case "htm":case "php":case "rs":case "go":case "yaml":case "yml":case "ini":case "properties":return "code";
             case "txt":case "md":case "log":case "csv":case "text":case "lrc":case "srt":case "conf":case "list":return "text";
             default:return "file";
         }
@@ -65,6 +65,30 @@ public final class Ui {
     public static boolean isTextFile(String name){
         String c=category(name,false);
         return c.equals("text")||c.equals("code");
+    }
+
+    /** 常用 MIME 映射（交给系统打开时用）。 */
+    public static String mimeFor(String name){
+        switch(ext(name)){
+            case "jpg":case "jpeg":case "png":case "gif":case "webp":case "bmp":case "svg":case "ico":case "heic":case "avif":return "image/*";
+            case "mp3":case "wav":case "flac":case "ogg":case "opus":case "m4a":case "aac":case "wma":case "amr":case "mid":case "ape":case "mka":return "audio/*";
+            case "mp4":case "mkv":case "avi":case "mov":case "webm":case "flv":case "wmv":case "ts":case "3gp":case "rmvb":case "m4v":return "video/*";
+            case "pdf":return "application/pdf";
+            case "zip":return "application/zip";
+            case "jar":return "application/java-archive";
+            case "apk":return "application/vnd.android.package-archive";
+            case "html":case "htm":case "xhtml":return "text/html";
+            case "css":return "text/css";
+            case "js":return "text/javascript";
+            case "json":return "application/json";
+            case "xml":return "text/xml";
+            case "doc":case "docx":return "application/msword";
+            case "xls":case "xlsx":case "csv":return "text/plain";
+            case "ppt":case "pptx":return "application/vnd.ms-powerpoint";
+            default:break;
+        }
+        if(isTextFile(name))return "text/plain";
+        return "application/octet-stream";
     }
 
     public static String formatSize(long bytes){
