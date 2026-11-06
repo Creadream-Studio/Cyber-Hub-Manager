@@ -8,11 +8,13 @@ Use Node.js + Happy DOM 15.11.7. Set HAPPY_DOM_PATH to its lib/index.js if it is
 not at ../../toolchain/test-node/node_modules/happy-dom/lib/index.js.
 Run startup-smoke.cjs, dom-smoke.cjs, layout-smoke.cjs, video-ui-smoke.cjs,
 motion-zoom-smoke.cjs, java-edit-ui-smoke.cjs and apks-ui-smoke.cjs for 95 checks.
-Run open-with-ui-smoke.cjs for 10 checks of the long-press Open With dialog
+Run open-with-ui-smoke.cjs for 12 checks of the long-press Open With dialog
 (tabs, builtin tile grid, dynamic greying, app queries, explicit launch,
 search, hex viewer, tapping a binary file falling back to the dialog with
-the hex viewer, and the explanatory refusal when edit-text is chosen
-explicitly for a binary file). open-with-screenshot.cjs renders reference
+the hex viewer, the explanatory refusal when edit-text is chosen
+explicitly for a binary file, tapping an html file launching the sandboxed
+preview directly, and the html preview tile launching it from the dialog
+while edit-text stays available). open-with-screenshot.cjs renders reference
 PNGs with Playwright when a browser is available (CHROME_BIN style paths).
 
 Run file-icons-smoke.cjs for 8 checks of the 0.1.58/0.1.59 file type icons:
@@ -30,10 +32,16 @@ robot head plus APK text) while keeping the real .apk icon lazy replacement.
 The 0.1.59 supplement adds the document badges pdf (red with a white
 dog-ear page plus PDF text), doc (Word blue with W), xls (Excel green with X,
 also claimed by csv while csv keeps its text editing entries) and ppt
-(PowerPoint orange-red with P), and maps .xapk onto the .apks handling:
+(PowerPoint orange-red with P), maps .xapk onto the .apks handling:
 android robot plus the real base-APK icon badge (DataEngine.iconForPath
 bundle extraction extended to .xapk), with the parse-failure fallback
-keeping the robot and no badge overlay.
+keeping the robot and no badge overlay, and adds the html type
+(.html/.htm/.xhtml): an HTML5 orange shield with a white 5, tapping such
+files launches the sandboxed HtmlPreviewActivity preview (a private
+WebView without the CyberNative bridge, offline rendering restricted to
+the file's own folder; http(s) links go to the browser), with a matching
+preview tile in the Open With builtin grid and a preview entry in the
+HTML editor menu.
 
 performance-profile.cjs counts full-buffer reads, line-mark visits and editor
 refreshes on a 15,003-line file. UI_SCRIPT can point to an older app.js for

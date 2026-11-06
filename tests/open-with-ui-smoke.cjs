@@ -5,7 +5,7 @@ w.document.write(fs.readFileSync(path.join(assets,'app.html'),'utf8').replace(/<
 // 与 ui-smoke 同形的原生桥 mock，补齐 openWithApps / openWithLaunch / hexView / terminalOpen。
 w.eval(`(()=>{
  const root='/storage/emulated/0',now=1792250000000;
- const files=[{name:'sample.apk',path:root+'/sample.apk',dir:false,size:340000,time:now},{name:'notes.txt',path:root+'/notes.txt',dir:false,size:200,time:now},{name:'photo.jpg',path:root+'/photo.jpg',dir:false,size:9000,time:now},{name:'run.sh',path:root+'/run.sh',dir:false,size:60,time:now},{name:'blob.bin',path:root+'/blob.bin',dir:false,size:64,time:now}];
+ const files=[{name:'sample.apk',path:root+'/sample.apk',dir:false,size:340000,time:now},{name:'notes.txt',path:root+'/notes.txt',dir:false,size:200,time:now},{name:'photo.jpg',path:root+'/photo.jpg',dir:false,size:9000,time:now},{name:'run.sh',path:root+'/run.sh',dir:false,size:60,time:now},{name:'blob.bin',path:root+'/blob.bin',dir:false,size:64,time:now},{name:'page.html',path:root+'/page.html',dir:false,size:1200,time:now}];
  window.__calls=[];
  window.CyberNative={request(id,action,raw){const a=JSON.parse(raw);window.__calls.push({action,args:a});setTimeout(()=>{let data;try{
   switch(action){
@@ -18,6 +18,7 @@ w.eval(`(()=>{
    case'openWithLaunch':data=true;break;
    case'hexView':{const off=Math.max(0,a.offset||0),len=Math.min(a.length||4096,64);let hex='',ascii='';for(let i=0;i<len;i++){const v=(off+i)&0xff;hex+=v.toString(16).padStart(2,'0');ascii+=(v>=32&&v<127)?String.fromCharCode(v):'.';}data={path:a.path,name:a.path.split('/').pop(),size:128,offset:off,length:len,hex,ascii};break;}
    case'terminalOpen':data=true;break;
+   case'htmlPreview':data=true;break;
    case'properties':data={path:a.path,size:200,modified:now,readable:true,writable:true,sha256:'x'};break;
    default:data=true;
   }
@@ -47,18 +48,19 @@ assert.deepEqual(tabs,['内置','系统建议','文本'],'text file shows builti
 assert.equal([...w.document.querySelectorAll('.owTabs .tab')].filter(x=>x.classList.contains('active')).length,1);
 pass('open-with dialog renders MT-style header and tabs');
 
-// 2) 内置网格：12 项、彩色瓦片、按类型置灰
-await wait(()=>w.document.querySelectorAll('.owItem').length>=12);
+// 2) 内置网格：13 项、彩色瓦片、按类型置灰
+await wait(()=>w.document.querySelectorAll('.owItem').length>=13);
 const labels=[...w.document.querySelectorAll('.owItem')].map(x=>x.getAttribute('aria-label'));
-assert.deepEqual(labels,['编辑文本','浏览压缩包','查看图片','十六进制','播放音乐','播放视频','XML 功能','DEX 功能','ARSC 功能','APK 信息','APKS 功能','Linux 脚本']);
+assert.deepEqual(labels,['编辑文本','浏览压缩包','查看图片','预览网页','十六进制','播放音乐','播放视频','XML 功能','DEX 功能','ARSC 功能','APK 信息','APKS 功能','Linux 脚本']);
 assert(gridItem('编辑文本').disabled===false,'text editor enabled for txt');
 assert(gridItem('查看图片').disabled===true,'image viewer disabled for txt');
+assert(gridItem('预览网页').disabled===true,'html preview disabled for txt');
 assert(gridItem('播放音乐').disabled===true,'music player disabled for txt');
 assert(gridItem('APK 信息').disabled===true,'apk info disabled for txt');
 assert(gridItem('编辑文本').querySelector('.owTile').style.background,'colourful tile background set');
 assert(gridItem('十六进制').querySelector('.owGlyph'),'hex tile uses glyph');
 assert(w.document.querySelector('.owDialog .actions button').textContent.trim()==='关闭','close button at bottom');
-pass('builtin grid has 12 tiles with dynamic greying');
+pass('builtin grid has 13 tiles with dynamic greying');
 
 // 3) 搜索过滤当前页
 w.document.querySelector('.owHeadBtns [aria-label="搜索打开方式"]').click();
@@ -71,7 +73,7 @@ assert.equal(w.document.querySelectorAll('.owItem').length,1);
 assert.equal(w.document.querySelectorAll('.owItem')[0].getAttribute('aria-label'),'编辑文本');
 searchInput.value='';searchInput.dispatchEvent(new w.Event('input',{bubbles:true}));
 await sleep();
-assert.equal(w.document.querySelectorAll('.owItem').length,12);
+assert.equal(w.document.querySelectorAll('.owItem').length,13);
 pass('header search filters current tab');
 
 // 4) 系统建议 / 文本 标签：外部应用网格 + 显式启动
@@ -155,6 +157,32 @@ assert(w.document.body.textContent.includes('二进制文件'),'explicit text ed
 button('确定');
 await wait(()=>!w.document.querySelector('#modalLayer .dialog'));
 pass('explicit edit-text on binary keeps the explanatory error');
+
+// 10) 轻点 page.html 直接发起 htmlPreview RPC（先 resolve 再预览），不进编辑器、不弹对话框
+const prevBefore=w.__calls.filter(c=>c.action==='htmlPreview').length;
+evaluate("openFile(state.panes[0].items.find(x=>x.name==='page.html'))");
+await wait(()=>w.__calls.filter(c=>c.action==='htmlPreview').length>prevBefore);
+const prev=w.__calls.filter(c=>c.action==='htmlPreview').pop();
+assert.equal(prev.args.path,'/storage/emulated/0/page.html','preview rpc receives the resolved path');
+assert.equal(prev.args.name,'page.html','preview rpc receives the file name');
+const prevIndex=w.__calls.findIndex(c=>c.action==='htmlPreview');
+assert(w.__calls.slice(0,prevIndex).some(c=>c.action==='resolve'),'resolve precedes the preview rpc');
+assert(!w.document.querySelector('.owDialog'),'tapping html opens no open-with dialog');
+assert(!w.document.querySelector('#codehost'),'tapping html does not open the text editor');
+pass('tapping an html file launches the sandboxed preview directly');
+
+// 11) 打开方式「预览网页」瓦片：对 html 可用并同样发起预览；「编辑文本」对 html 保持可用
+evaluate("openWithDialog(state.panes[0].items.find(x=>x.name==='page.html'))");
+await wait(()=>w.document.querySelector('.owDialog'));
+assert(gridItem('预览网页').disabled===false,'preview tile enabled for html');
+assert(gridItem('预览网页').querySelector('.owTile').style.background,'preview tile has colour background');
+assert(gridItem('编辑文本').disabled===false,'text editing stays enabled for html');
+const previewCount0=w.__calls.filter(c=>c.action==='htmlPreview').length;
+gridItem('预览网页').click();
+await wait(()=>w.__calls.filter(c=>c.action==='htmlPreview').length>previewCount0&&!w.document.querySelector('.owDialog'));
+const prev2=w.__calls.filter(c=>c.action==='htmlPreview').pop();
+assert.equal(prev2.args.path,'/storage/emulated/0/page.html','tile preview rpc path');
+pass('open-with preview tile launches the preview and html keeps text editing');
 
 assert.deepEqual(errors,[]);pass('no JavaScript errors in DOM harness');
 console.log('ALL '+count+' OPEN-WITH CHECKS PASSED (layout and Android WebView not emulated)');await w.happyDOM.close();})().catch(e=>{console.error(e);process.exit(1)});
