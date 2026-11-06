@@ -169,8 +169,8 @@ assert(xlsSvg.includes('#217346')&&xlsSvg.includes('>X<'),'xls excel-green badge
 const pptSvg=iconOf('ppt');
 assert(pptSvg.includes('#c43e1c')&&pptSvg.includes('>P<'),'ppt orange-red badge with P text');
 const htmlSvg=iconOf('html');
-assert(htmlSvg.includes('#e34f26')&&htmlSvg.includes('>5<')&&htmlSvg.includes('l-6.87-2.4z'),'html HTML5 orange shield with white 5');
-pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口、deb 螺旋卷曲、apk 机器人头软件徽标、pdf/doc/xls/ppt 文档折角页字母徽标、html HTML5 盾牌及媒体配色齐备，zip 别名渲染纸箱');
+assert(htmlSvg.includes('#2196f3')&&htmlSvg.includes('#7cb342')&&htmlSvg.includes('rx="3.9" ry="8.9"')&&htmlSvg.includes('M3.1 12h17.8')&&htmlSvg.includes('M4.1 8.2h15.8'),'html internet globe: web-blue sphere, green continents, white meridian grid');
+pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字、hap 蓝青轨道、iap/ipa 安装箭头、exe 四格窗口、deb 螺旋卷曲、apk 机器人头软件徽标、pdf/doc/xls/ppt 文档折角页字母徽标、html 互联网地球及媒体配色齐备，zip 别名渲染纸箱');
 
 // 3) 列表渲染：每行图标节点与类型类名
 const expectIcon=(name,cls)=>{const h=holder(name);assert(h,'icon holder '+name);assert(h.classList.contains(cls),'class '+cls+' for '+name);assert(h.querySelector('svg'),'svg in '+name);return h;};
@@ -265,7 +265,7 @@ assert(owApks&&owApks.ok===true&&String(owApks.glyph).includes('#3ddc84'),'apks 
 const owXapk=owFor('game.xapk').find(i=>i.label==='APKS 功能');
 assert(owXapk&&owXapk.ok===true&&String(owXapk.glyph).includes('#3ddc84'),'xapk enters apks category');
 const owHtml=owFor('index.html').find(i=>i.label==='预览网页');
-assert(owHtml&&owHtml.ok===true&&String(owHtml.glyph).includes('#e34f26'),'html preview tile enabled with orange shield glyph');
+assert(owHtml&&owHtml.ok===true&&String(owHtml.glyph).includes('#2196f3'),'html preview tile enabled with internet globe glyph');
 const owHtmlEdit=owFor('index.html').find(i=>i.label==='编辑文本');
 assert(owHtmlEdit&&owHtmlEdit.ok===true,'html keeps text editing entry');
 const owTxtPreview=owFor('note.txt').find(i=>i.label==='预览网页');
@@ -274,7 +274,7 @@ const owCsv=owFor('data.csv').find(i=>i.label==='编辑文本');
 assert(owCsv&&owCsv.ok===true,'csv keeps text editing entry');
 const owTxt=owFor('note.txt').find(i=>i.label==='浏览压缩包');
 assert(!owTxt||owTxt.ok===false,'txt not archive');
-pass('打开方式：rar/zip 进入「浏览压缩包」分类，APKS 功能使用机器人图标，xapk 同入 APKS 分类，html 进入「预览网页」分类（橙色盾牌）且保留「编辑文本」，csv 保留文本编辑，txt 不出现网页预览');
+pass('打开方式：rar/zip 进入「浏览压缩包」分类，APKS 功能使用机器人图标，xapk 同入 APKS 分类，html 进入「预览网页」分类（蓝色互联网地球）且保留「编辑文本」，csv 保留文本编辑，txt 不出现网页预览');
 
 console.log('TOTAL',count,'PASS');process.exit(errors.length?1:0);
 })().catch(e=>{console.error('FAIL',e.message);process.exit(1)});

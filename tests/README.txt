@@ -36,7 +36,8 @@ also claimed by csv while csv keeps its text editing entries) and ppt
 android robot plus the real base-APK icon badge (DataEngine.iconForPath
 bundle extraction extended to .xapk), with the parse-failure fallback
 keeping the robot and no badge overlay, and adds the html type
-(.html/.htm/.xhtml): an HTML5 orange shield with a white 5, tapping such
+(.html/.htm/.xhtml): an internet globe (a web-blue sphere with a white
+meridian grid and green continents), tapping such
 files launches the sandboxed HtmlPreviewActivity preview (a private
 WebView without the CyberNative bridge, offline rendering restricted to
 the file's own folder; http(s) links go to the browser), with a matching
