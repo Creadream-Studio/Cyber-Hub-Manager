@@ -13,11 +13,13 @@ Run open-with-ui-smoke.cjs for 8 checks of the long-press Open With dialog
 search, hex viewer). open-with-screenshot.cjs renders reference PNGs with
 Playwright when a browser is available (CHROME_BIN style paths).
 
-Run file-icons-smoke.cjs for 8 checks of the 0.1.58 file type icons:
-fileType mapping (dex/bak/archive/xml/arec plus image, audio, video, text,
-unknown and split-part fallbacks), rich SVG icon markup, list row icon nodes,
-real .apk icon replacement, .apks android robot plus badge overlay, apkIcon
-RPC arguments, front-end cache on re-render, and Open With category gating.
+Run file-icons-smoke.cjs for 8 checks of the 0.1.58/0.1.59 file type icons:
+fileType mapping (dex/bak/archive/xml/arec/so/bin plus image, audio, video,
+text, unknown and split-part fallbacks), rich SVG icon markup, list row icon
+nodes, real .apk icon replacement, .apks android robot plus badge overlay,
+apkIcon RPC arguments, front-end cache on re-render, and Open With category
+gating. 0.1.59 adds so (purple gear badge) and bin (dark slate with green
+binary digits) coverage.
 
 performance-profile.cjs counts full-buffer reads, line-mark visits and editor
 refreshes on a 15,003-line file. UI_SCRIPT can point to an older app.js for

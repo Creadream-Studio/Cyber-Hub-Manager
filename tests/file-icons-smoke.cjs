@@ -7,7 +7,7 @@ w.eval(`(()=>{
  window.__calls=[];
  window.CyberNative={request(id,action,raw){const a=JSON.parse(raw);window.__calls.push({action,args:a});setTimeout(()=>{let data;try{
   switch(action){
-   case'init':data={permission:true,home:'${root}',workspace:'${root}/CyberHub',version:'0.1.58',ownApk:'${root}/self.apk'};break;
+   case'init':data={permission:true,home:'${root}',workspace:'${root}/CyberHub',version:'0.1.59',ownApk:'${root}/self.apk'};break;
    case'list':data=[
     {name:'相册',path:'${root}/相册',dir:true,size:0,time:1},
     {name:'classes.dex',path:'${root}/classes.dex',dir:false,size:1,time:1},
@@ -18,6 +18,9 @@ w.eval(`(()=>{
     {name:'backup.tar.gz',path:'${root}/backup.tar.gz',dir:false,size:1,time:1},
     {name:'layout.xml',path:'${root}/layout.xml',dir:false,size:1,time:1},
     {name:'call_rec.arec',path:'${root}/call_rec.arec',dir:false,size:1,time:1},
+    {name:'libtest.so',path:'${root}/libtest.so',dir:false,size:1,time:1},
+    {name:'image.bin',path:'${root}/image.bin',dir:false,size:1,time:1},
+    {name:'firmware.bin',path:'${root}/firmware.bin',dir:false,size:1,time:1},
     {name:'photo.jpg',path:'${root}/photo.jpg',dir:false,size:1,time:1},
     {name:'music.mp3',path:'${root}/music.mp3',dir:false,size:1,time:1},
     {name:'clip.mp4',path:'${root}/clip.mp4',dir:false,size:1,time:1},
@@ -55,6 +58,10 @@ assert.equal(typeOf('backup.tar.gz'),'archive');
 assert.equal(typeOf('pack.tar'),'archive');
 assert.equal(typeOf('layout.xml'),'xml');
 assert.equal(typeOf('call_rec.arec'),'arec');
+assert.equal(typeOf('libtest.so'),'so');
+assert.equal(typeOf('image.bin'),'bin');
+assert.equal(typeOf('firmware.bin'),'bin');
+assert.equal(typeOf('libtest.so.bak'),'bak');
 assert.equal(typeOf('photo.jpg'),'image');
 assert.equal(typeOf('music.mp3'),'audio');
 assert.equal(typeOf('clip.mp4'),'video');
@@ -64,7 +71,7 @@ assert.equal(typeOf('part.001'),'file');
 assert.equal(typeOf('app-release.apk'),'apk');
 assert.equal(typeOf('splits.apks'),'apks');
 assert.equal(w.eval('window.__test.fileType({name:"x",dir:true})'),'folder');
-pass('fileType 映射：dex/bak/压缩包/xml/arec 与图片、音频、视频、文本、未知、分卷兜底正确');
+pass('fileType 映射：dex/bak/压缩包/xml/arec/so/bin 与图片、音频、视频、文本、未知、分卷兜底正确');
 
 // 2) 富图标 SVG：特征颜色与徽标文字
 const iconOf=n=>w.eval(`window.__test.icon(${JSON.stringify(n)})`);
@@ -83,7 +90,11 @@ assert(iconOf('audio').includes('#a07ad8'),'audio purple');
 assert(iconOf('video').includes('#4e7fd0'),'video blue');
 assert(iconOf('text').includes('#aeb6bf'),'text paper');
 assert(iconOf('folder').includes('fill="currentColor"'),'folder keeps currentColor icon');
-pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人及媒体配色齐备，zip 别名渲染纸箱');
+const soSvg=iconOf('so');
+assert(soSvg.includes('#7e57c2')&&soSvg.includes('>SO<')&&soSvg.includes('<circle'),'so purple badge with gear and SO text');
+const binSvg=iconOf('bin');
+assert(binSvg.includes('#37474f')&&binSvg.includes('#7ee787')&&binSvg.includes('>0110<'),'bin dark slate with green binary digits');
+pass('富图标 SVG：DEX/BAK 徽标、纸箱、橙色尖括号、红点波形、机器人、so 齿轮徽标、bin 二进制数字及媒体配色齐备，zip 别名渲染纸箱');
 
 // 3) 列表渲染：每行图标节点与类型类名
 const expectIcon=(name,cls)=>{const h=holder(name);assert(h,'icon holder '+name);assert(h.classList.contains(cls),'class '+cls+' for '+name);assert(h.querySelector('svg'),'svg in '+name);return h;};
@@ -95,6 +106,9 @@ expectIcon('bundle.7z','archive');
 expectIcon('backup.tar.gz','archive');
 expectIcon('layout.xml','xml');
 expectIcon('call_rec.arec','arec');
+expectIcon('libtest.so','so');
+expectIcon('image.bin','bin');
+expectIcon('firmware.bin','bin');
 expectIcon('photo.jpg','image');
 expectIcon('music.mp3','audio');
 expectIcon('clip.mp4','video');
