@@ -718,13 +718,12 @@ h1.title,h1.editorTitle{margin:0}
 /* Recycle bin */
 .recycleGroup{position:sticky;top:0;z-index:2;padding:9px 10px;font-size:13px;line-height:18px;color:var(--muted);background:var(--ground);border-bottom:1px solid var(--rule)}
 .recyclePane:not(.active) .recycleGroup{background:var(--surface)}
-.recyclePane .fileicon.dex{background:#377c80!important;color:#fff!important}
 .recyclePane .fileicon.file{background:#2f5fbf!important;color:#fff!important}
-.recyclePane .fileicon.xml,.recyclePane .fileicon.java,.recyclePane .fileicon.smali{background:#354e9b!important;color:#fff!important}
-.recyclePane .fileicon.zip,.recyclePane .fileicon.apks{background:#927367!important;color:#fff!important}
+.recyclePane .fileicon.java,.recyclePane .fileicon.smali{background:#354e9b!important;color:#fff!important}
 .recyclePane .fileicon.arsc{background:#a57306!important;color:#fff!important}
 .recyclePane .fileicon.apk{background:#2e7d32!important;color:#fff!important}
 .recyclePane .fileicon.folder{background:transparent!important;color:var(--muted)!important}
+.recyclePane .fileicon.dex,.recyclePane .fileicon.xml,.recyclePane .fileicon.zip,.recyclePane .fileicon.archive,.recyclePane .fileicon.apks,.recyclePane .fileicon.bak,.recyclePane .fileicon.arec,.recyclePane .fileicon.image,.recyclePane .fileicon.video,.recyclePane .fileicon.audio,.recyclePane .fileicon.text{background:transparent!important;color:var(--muted)!important}
 .recyclePane .recycleRow{padding-left:10px;padding-right:10px}
 .netBar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .netBar .primary{padding:8px 12px;font-size:12px;min-height:0}
@@ -1041,3 +1040,16 @@ body.light .dexTlDictDel{color:#b04848}
 /* 0.1.50 Android/data|media|obb 文件夹 + 应用图标组合角标 */
 .fileicon.appBadgeHost{position:relative;overflow:visible}
 .fileicon .appBadge{position:absolute;right:-4px;bottom:-4px;width:16px;height:16px;border-radius:4px;object-fit:contain;background:var(--bg);box-shadow:0 0 0 1.5px var(--bar);z-index:1}
+/* 0.1.58 文件类型图标：dex / bak / 压缩包 / xml / arec / 媒体与文本富图标，apks 机器人+应用角标 */
+.fileicon.apks svg{width:26px;height:26px}
+.fileicon.dex svg{width:26px;height:26px}
+.fileicon.archive svg,.fileicon.bak svg,.fileicon.text svg{width:23px;height:23px}
+.fileicon.xml svg,.fileicon.arec svg,.fileicon.image svg,.fileicon.video svg,.fileicon.audio svg{width:24px;height:24px}
+.quickRow .fileicon.apks svg,.quickRow .fileicon.dex svg{width:26px;height:26px}
+body.list-small .fileicon.apks svg,body.list-small .fileicon.dex svg{width:22px;height:22px}
+body.list-small .fileicon.archive svg,body.list-small .fileicon.bak svg,body.list-small .fileicon.text svg{width:19px;height:19px}
+body.list-small .fileicon.xml svg,body.list-small .fileicon.arec svg,body.list-small .fileicon.image svg,body.list-small .fileicon.video svg,body.list-small .fileicon.audio svg{width:20px;height:20px}
+body.list-large .fileicon.apks svg,body.list-large .fileicon.dex svg{width:32px;height:32px}
+body.list-large .fileicon.archive svg,body.list-large .fileicon.bak svg,body.list-large .fileicon.text svg{width:28px;height:28px}
+body.list-large .fileicon.xml svg,body.list-large .fileicon.arec svg,body.list-large .fileicon.image svg,body.list-large .fileicon.video svg,body.list-large .fileicon.audio svg{width:29px;height:29px}
+@media(max-width:600px){.fileicon.apks svg{width:22px;height:22px}.fileicon.dex svg{width:21px;height:21px}.fileicon.archive svg,.fileicon.bak svg,.fileicon.text svg{width:19px;height:19px}.fileicon.xml svg,.fileicon.arec svg,.fileicon.image svg,.fileicon.video svg,.fileicon.audio svg{width:20px;height:20px}}

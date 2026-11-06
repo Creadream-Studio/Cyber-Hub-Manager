@@ -251,7 +251,41 @@ public final class DataEngine {
    while(protectionCache.size()>8)protectionCache.remove(protectionCache.keySet().iterator().next());
    return value;
   }
- String iconForPath(String path){PackageInfo info=activity.getPackageManager().getPackageArchiveInfo(path,0);if(info==null||info.applicationInfo==null)return "";info.applicationInfo.sourceDir=path;info.applicationInfo.publicSourceDir=path;return appIcon(info.applicationInfo);}
+ final Map<String,String> pathIconCache=new LinkedHashMap<>();
+ String iconForPath(String path){
+  File f=new File(path);String key=path+"|"+f.length()+"|"+f.lastModified();
+  String hit=pathIconCache.get(key);if(hit!=null)return hit;
+  String value=archiveApkIcon(f);
+  if(value.isEmpty()&&f.getName().toLowerCase(Locale.ROOT).endsWith(".apks")){File base=bundleBaseApk(f);if(base!=null)value=archiveApkIcon(base);}
+  pathIconCache.put(key,value);
+  while(pathIconCache.size()>160)pathIconCache.remove(pathIconCache.keySet().iterator().next());
+  return value;
+ }
+ String archiveApkIcon(File f){PackageInfo info=activity.getPackageManager().getPackageArchiveInfo(f.getPath(),0);if(info==null||info.applicationInfo==null)return "";info.applicationInfo.sourceDir=f.getPath();info.applicationInfo.publicSourceDir=f.getPath();return appIcon(info.applicationInfo);}
+ File bundleBaseApk(File bundle){
+  try{
+   File dir=new File(activity.getCacheDir(),"bundle-icons");if(!dir.isDirectory()&&!dir.mkdirs())return null;
+   String tag=Integer.toHexString((bundle.getPath()+"|"+bundle.length()+"|"+bundle.lastModified()).hashCode());
+   File cached=new File(dir,tag+".apk");if(cached.isFile()&&cached.length()>0)return cached;
+   ZipEntry best=null;long bestSize=-1;
+   try(ZipFile z=new ZipFile(bundle)){
+    Enumeration<? extends ZipEntry> en=z.entries();
+    while(en.hasMoreElements()){
+     ZipEntry e=en.nextElement();String n=e.getName();
+     if(e.isDirectory()||!n.toLowerCase(Locale.ROOT).endsWith(".apk"))continue;
+     if(n.equals("base.apk")||n.endsWith("/base.apk")){best=e;break;}
+     if(e.getSize()>bestSize){best=e;bestSize=e.getSize();}
+    }
+    if(best==null)return null;
+    File tmp=File.createTempFile(".bundle-icon-",".tmp",dir);
+    try(InputStream in=z.getInputStream(best);OutputStream out=new FileOutputStream(tmp)){
+     byte[] buf=new byte[65536];int n;while((n=in.read(buf))>0)out.write(buf,0,n);
+    }
+    File[] olds=dir.listFiles();if(olds!=null&&olds.length>12)for(File x:olds)if(!x.equals(tmp))x.delete();
+    FileOps.replace(tmp,cached);return cached.isFile()?cached:null;
+   }
+  }catch(Exception e){return null;}
+ }
  String appIcon(ApplicationInfo info){try{android.graphics.drawable.Drawable drawable=info.loadIcon(activity.getPackageManager());android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(96,96,android.graphics.Bitmap.Config.ARGB_8888);android.graphics.Canvas canvas=new android.graphics.Canvas(bitmap);drawable.setBounds(0,0,96,96);drawable.draw(canvas);ByteArrayOutputStream out=new ByteArrayOutputStream();bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);bitmap.recycle();return "data:image/png;base64,"+android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP);}catch(Exception e){return "";}}
  void sign(File src,File dst)throws Exception{sign(src,dst,true,true,true);}
   void sign(File src,File dst,boolean v1,boolean v2,boolean v3)throws Exception{try(InputStream key=activity.getAssets().open("development-signing.p12")){ApkSigning.sign(src,dst,key,v1,v2,v3);}}
