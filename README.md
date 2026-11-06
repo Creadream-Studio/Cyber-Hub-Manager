@@ -1,4 +1,8 @@
-# CH Manager (CH管理器) — 0.1.14 development build
+# CH Manager (CH管理器) — 0.0.1 development build
+
+> **原生界面版（0.0.1 起）**：主界面已从 WebView/JS 全面改为纯原生 Android View（MP-Manager 风格双窗格卡片布局），
+> WebView 壳层（app.js/app.html/CodeMirror）已移除；引擎层（DEX/APK/网络存储/终端等）完整保留。
+> 网页编辑器、翻译模式、屏幕取色等 WebView 时代的工具页将在后续版本以原生界面逐步回归。
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 

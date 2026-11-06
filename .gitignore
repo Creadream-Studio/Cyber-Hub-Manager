@@ -7,3 +7,4 @@ dist/
 .idea/
 __pycache__/
 *.pyc
+app/libs/bcprov-jdk18on-*.jar
