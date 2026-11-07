@@ -532,8 +532,8 @@ public class MainActivity extends Activity implements PaneController.Host {
 
     private void showAbout(){
         new AlertDialog.Builder(this)
-                .setTitle("CH管理器 · 0.0.1")
-                .setMessage("CH Manager（CH管理器）原生界面版\n\nMP-Manager 风格双窗格文件管理。\n引擎层完整保留：DEX/APK 工具、网络存储、终端、Root/Shizuku。\n\n本版本为原生界面首个测试版。")
+                .setTitle("CH管理器 · 0.0.2")
+                .setMessage("CH Manager（CH管理器）原生界面版\n\nMP-Manager 风格双窗格文件管理。\n引擎层完整保留：DEX/APK 工具、网络存储、终端、Root/Shizuku。\n\n0.0.2：新增左侧抽屉（位置/工具）、列表「..」返回上级、授权后自动刷新。")
                 .setPositiveButton("关闭",null).show();
     }
 
@@ -568,7 +568,7 @@ public class MainActivity extends Activity implements PaneController.Host {
         title.setPadding(Ui.dp(this,20),Ui.dp(this,22),Ui.dp(this,20),0);
         content.addView(title);
         TextView sub=new TextView(this);
-        sub.setText("CH Manager · 原生界面版 0.0.1");
+        sub.setText("CH Manager · 原生界面版 0.0.2");
         sub.setTextSize(12);
         sub.setTextColor(getColor(R.color.on_surface_variant));
         sub.setPadding(Ui.dp(this,20),Ui.dp(this,2),Ui.dp(this,20),Ui.dp(this,12));
