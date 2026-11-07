@@ -5,8 +5,8 @@
 #   1. 手动触发，构建已签名 APK（仓库内置 development keystore，各版本签名一致，可覆盖安装升级）
 #   2. 自动发布到 GitHub Releases（Draft/Pre-release 可选）
 #
-# 版本号来源：app/build.gradle 的 versionName（当前 0.1.59 / versionCode 55）。
-# 注意：tools/build.py 内部将 versionCode/versionName 写死为 55 / 0.1.59，
+# 版本号来源：app/build.gradle 的 versionName（当前 0.0.1 / versionCode 1）。
+# 注意：tools/build.py 内部将 versionCode/versionName 写死为 1 / 0.0.1，
 #       发新版本时需同步更新 app/build.gradle 与 tools/build.py 两处。
 
 name: Release APK (手动)
