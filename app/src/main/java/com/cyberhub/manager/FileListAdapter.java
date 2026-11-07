@@ -28,11 +28,14 @@ public final class FileListAdapter extends BaseAdapter {
 
     public JSONObject entryAt(int position){return entries.optJSONObject(position);}
 
-    public boolean isSelected(int position){JSONObject e=entryAt(position);return e!=null&&selected.contains(e.optString("path"));}
+    /** “..”返回上一级条目：不参与选择、不算文件数。 */
+    public static boolean isParentEntry(JSONObject e){return e!=null&&e.optBoolean("parentEntry");}
+
+    public boolean isSelected(int position){JSONObject e=entryAt(position);return !isParentEntry(e)&&selected.contains(e.optString("path"));}
 
     public void toggleSelect(int position){
         JSONObject e=entryAt(position);
-        if(e==null)return;
+        if(e==null||isParentEntry(e))return;
         String path=e.optString("path");
         if(!selected.remove(path))selected.add(path);
         notifyDataSetChanged();
@@ -48,7 +51,7 @@ public final class FileListAdapter extends BaseAdapter {
 
     private HashSet<String> paths(){
         HashSet<String> out=new HashSet<>();
-        for(int i=0;i<entries.length();i++){JSONObject e=entries.optJSONObject(i);if(e!=null)out.add(e.optString("path"));}
+        for(int i=0;i<entries.length();i++){JSONObject e=entries.optJSONObject(i);if(e!=null&&!isParentEntry(e))out.add(e.optString("path"));}
         return out;
     }
 
@@ -63,22 +66,25 @@ public final class FileListAdapter extends BaseAdapter {
         if(row==null)row=inflater.inflate(R.layout.item_file,parent,false);
         JSONObject e=entryAt(position);
         if(e==null)return row;
+        boolean up=isParentEntry(e);
         String name=e.optString("name");
         boolean dir=e.optBoolean("dir");
-        String category=Ui.category(name,dir);
+        String category=up?"parent":Ui.category(name,dir);
         ImageView icon=row.findViewById(R.id.ivIcon);
-        icon.setImageResource(Ui.iconRes(category));
-        icon.setColorFilter(context.getColor(Ui.tintRes(category)));
+        icon.setImageResource(up?R.drawable.ic_up:Ui.iconRes(category));
+        icon.setColorFilter(context.getColor(up?R.color.primary:Ui.tintRes(category)));
         TextView tvName=row.findViewById(R.id.tvName);
-        tvName.setText(name);
+        tvName.setText(up?"..（返回上一级）":name);
         TextView tvSub=row.findViewById(R.id.tvSub);
-        if(dir){
+        if(up){
+            tvSub.setText("返回上一级目录");
+        }else if(dir){
             long time=e.optLong("time",0);
             tvSub.setText(time>0?Ui.formatDate(time):"文件夹");
         }else{
             tvSub.setText(Ui.formatSize(e.optLong("size",0))+" · "+Ui.formatDate(e.optLong("time",0)));
         }
-        boolean isSelected=selected.contains(e.optString("path"));
+        boolean isSelected=!up&&selected.contains(e.optString("path"));
         LinearLayout card=row.findViewById(R.id.rowCard);
         card.setBackgroundResource(isSelected?R.drawable.bg_card_selected:R.drawable.bg_card);
         ImageView mark=row.findViewById(R.id.ivSelected);

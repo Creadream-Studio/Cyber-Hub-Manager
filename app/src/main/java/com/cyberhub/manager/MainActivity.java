@@ -14,8 +14,10 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.Settings;
 import android.text.InputType;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -24,6 +26,7 @@ import android.view.Gravity;
 import android.view.inputmethod.InputMethodManager;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.AdapterView;
 import android.widget.EditText;
@@ -33,6 +36,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.PopupMenu;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -66,6 +70,26 @@ public class MainActivity extends Activity implements PaneController.Host {
     private ActionMode actionMode;
     static final int UNINSTALL_REQ=4242;
     public volatile boolean uninstallBusy;
+    // —— 文件访问权限状态（用于“授权后返回自动刷新”） ——
+    private boolean hadFullAccess=true;
+
+    // —— 左侧抽屉（MP-Manager 风格，点击右上角菜单滑入） ——
+    private View drawerScrim;
+    private LinearLayout drawerPanel;
+    private boolean drawerOpen;
+    private float drawerHiddenX;
+    private TextView drawerPermissionText;
+    private ImageView drawerPermissionIcon;
+    private static final String[][] PLACES={
+            {"主存储","/storage/emulated/0"},
+            {"下载","/storage/emulated/0/Download"},
+            {"文档","/storage/emulated/0/Documents"},
+            {"图片","/storage/emulated/0/Pictures"},
+            {"相机","/storage/emulated/0/DCIM/Camera"},
+            {"音乐","/storage/emulated/0/Music"},
+            {"工作区",""},
+            {"根目录","/"},
+    };
 
     // —— 终端（自旧版 MainActivity 移植）——
     private FrameLayout terminalOverlay;
@@ -88,6 +112,7 @@ public class MainActivity extends Activity implements PaneController.Host {
         root=new FrameLayout(this);
         getLayoutInflater().inflate(R.layout.activity_main,root,true);
         setContentView(root);
+        buildDrawer();
 
         ListView list1=findViewById(R.id.list1),list2=findViewById(R.id.list2);
         pane1=new PaneController(this,list1,findViewById(R.id.empty1));
@@ -107,7 +132,7 @@ public class MainActivity extends Activity implements PaneController.Host {
         findViewById(R.id.btnUp).setOnClickListener(v->active.goUp());
         findViewById(R.id.btnAdd).setOnClickListener(v->showNewDialog());
         findViewById(R.id.btnSwap).setOnClickListener(v->swapPane());
-        findViewById(R.id.btnMenu).setOnClickListener(v->showStorageDialog(v));
+        findViewById(R.id.btnMenu).setOnClickListener(v->toggleDrawer());
         findViewById(R.id.btnMore).setOnClickListener(v->showMoreMenu(v));
         bindPane(pane1);
         bindPane(pane2);
@@ -128,9 +153,19 @@ public class MainActivity extends Activity implements PaneController.Host {
             if(actionMode!=null){pane.adapter.toggleSelect(position);onSelectionChanged();return;}
             JSONObject e=pane.adapter.entryAt(position);
             if(e==null)return;
+            if(FileListAdapter.isParentEntry(e)){pane.goUp();return;}
             if(e.optBoolean("dir"))pane.navigate(e.optString("path"));
             else openFile(e.optString("path"),e.optString("name"));
         });
+        // 加载失败时点击空白处：无权限则去授权，有权限则重试
+        pane.empty.setOnClickListener(v->{
+            if(!hasFullAccess()){
+                Toast.makeText(this,"需要「所有文件访问」权限，正在前往设置…",Toast.LENGTH_LONG).show();
+                storagePermission();
+            }else pane.refresh();
+        });
+        pane.empty.setPadding(Ui.dp(this,20),Ui.dp(this,20),Ui.dp(this,20),Ui.dp(this,20));
+        pane.empty.setGravity(android.view.Gravity.CENTER);
         pane.list.setOnItemLongClickListener((parent,view,position,id)->{
             if(actionMode==null)actionMode=startActionMode(actionCallback);
             if(pane!=active)setActivePane(pane);
@@ -502,50 +537,263 @@ public class MainActivity extends Activity implements PaneController.Host {
                 .setPositiveButton("关闭",null).show();
     }
 
-    private void showStorageDialog(View anchor){
-        final String[][] places={
-                {"主存储","/storage/emulated/0"},
-                {"下载","/storage/emulated/0/Download"},
-                {"文档","/storage/emulated/0/Documents"},
-                {"图片","/storage/emulated/0/Pictures"},
-                {"相机","/storage/emulated/0/DCIM/Camera"},
-                {"音乐","/storage/emulated/0/Music"},
-                {"工作区",new File(getFilesDir(),"工作区").getPath()},
-                {"根目录","/"},
-        };
-        LinearLayout box=new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        for(final String[] place:places){
-            View row=LayoutInflater.from(this).inflate(R.layout.item_storage,box,false);
-            ImageView icon=row.findViewById(R.id.ivStorageIcon);
-            icon.setImageResource(place[0].equals("根目录")?R.drawable.ic_terminal:R.drawable.ic_storage);
-            icon.setColorFilter(getColor(R.color.primary));
-            TextView name=row.findViewById(R.id.tvStorageName);
-            name.setText(place[0]);
-            row.setOnClickListener(v->{setActivePane(active);active.jump(place[1]);((AlertDialog)v.getTag()).dismiss();});
-            box.addView(row);
+    // ———————— 左侧抽屉（MP-Manager 风格：右上角菜单滑入，含位置/工具目录） ————————
+    private void buildDrawer(){
+        int w=Ui.dp(this,300);
+        drawerScrim=new View(this);
+        drawerScrim.setBackgroundColor(0xB3000000);
+        drawerScrim.setAlpha(0f);
+        drawerScrim.setVisibility(View.GONE);
+        drawerScrim.setOnClickListener(v->closeDrawer());
+        root.addView(drawerScrim,new FrameLayout.LayoutParams(-1,-1));
+
+        drawerPanel=new LinearLayout(this);
+        drawerPanel.setOrientation(LinearLayout.VERTICAL);
+        drawerPanel.setBackgroundColor(getColor(R.color.surface));
+        drawerPanel.setElevation(Ui.dp(this,16));
+
+        ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(true);
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(content,new ViewGroup.LayoutParams(-1,-2));
+        drawerPanel.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));
+
+        // —— 头部：应用名 ——
+        TextView title=new TextView(this);
+        title.setText("CH管理器");
+        title.setTextSize(20);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(getColor(R.color.on_surface));
+        title.setPadding(Ui.dp(this,20),Ui.dp(this,22),Ui.dp(this,20),0);
+        content.addView(title);
+        TextView sub=new TextView(this);
+        sub.setText("CH Manager · 原生界面版 0.0.1");
+        sub.setTextSize(12);
+        sub.setTextColor(getColor(R.color.on_surface_variant));
+        sub.setPadding(Ui.dp(this,20),Ui.dp(this,2),Ui.dp(this,20),Ui.dp(this,12));
+        content.addView(sub);
+
+        // —— 文件访问权限状态行（点击授权/查看） ——
+        View permRow=LayoutInflater.from(this).inflate(R.layout.item_storage,content,false);
+        drawerPermissionIcon=permRow.findViewById(R.id.ivStorageIcon);
+        drawerPermissionText=permRow.findViewById(R.id.tvStorageName);
+        permRow.setOnClickListener(v->{
+            if(hasFullAccess())Toast.makeText(this,"「所有文件访问」已开启，可正常浏览全部目录",Toast.LENGTH_SHORT).show();
+            else storagePermission();
+        });
+        content.addView(permRow);
+        View sep=new View(this);
+        sep.setBackgroundColor(getColor(R.color.outline));
+        content.addView(sep,new LinearLayout.LayoutParams(-1,Ui.dp(this,1)));
+
+        // —— 位置组 ——
+        content.addView(groupLabel("位置"));
+        final String workspace=new File(getFilesDir(),"工作区").getPath();
+        int[] placeIcons={R.drawable.ic_storage,R.drawable.ic_file,R.drawable.ic_text,R.drawable.ic_image,R.drawable.ic_video,R.drawable.ic_audio,R.drawable.ic_folder,R.drawable.ic_terminal};
+        for(int i=0;i<PLACES.length;i++){
+            final String name=PLACES[i][0],path=PLACES[i][1].isEmpty()?workspace:PLACES[i][1];
+            content.addView(drawerRow(name,placeIcons[i],R.color.primary,v->{
+                setActivePane(active);active.jump(path);closeDrawer();
+            }));
         }
-        final AlertDialog dialog=new AlertDialog.Builder(this).setTitle("位置").setView(box)
-                .setNegativeButton("关闭",null).create();
-        for(int i=0;i<box.getChildCount();i++)box.getChildAt(i).setTag(dialog);
-        dialog.show();
+
+        // —— 工具组（仿 MP-Manager 工具目录，映射本软件引擎能力） ——
+        content.addView(groupLabel("工具"));
+        content.addView(drawerRow("已安装应用",R.drawable.ic_apk,R.color.apk_tint,v->showAppsDialog()));
+        content.addView(drawerRow("回收站",R.drawable.ic_delete,R.color.danger,v->showRecycleDialog()));
+        content.addView(drawerRow("FTP 传输",R.drawable.ic_swap,R.color.primary,v->startFtpShare()));
+        content.addView(drawerRow("终端",R.drawable.ic_terminal,R.color.primary,v->{closeDrawer();openTerminal(active.path);}));
+        content.addView(drawerRow("APK / DEX 工具",R.drawable.ic_code,R.color.code_tint,v->{
+            closeDrawer();
+            new AlertDialog.Builder(this)
+                    .setTitle("APK / DEX 工具")
+                    .setMessage("在文件列表中轻点对应文件即可使用：\n\n· APK / XAPK / APKS → 应用信息、提取、优化、克隆、签名\n· DEX → 修复、转 Smali / JAR、字符串解密\n· 压缩包 → 浏览、解压、编辑内嵌文件\n· ARSC → 资源翻译")
+                    .setPositiveButton("知道了",null).show();
+        }));
+
+        View sep2=new View(this);
+        sep2.setBackgroundColor(getColor(R.color.outline));
+        content.addView(sep2,new LinearLayout.LayoutParams(-1,Ui.dp(this,1)));
+        content.addView(drawerRow("关于 CH管理器",R.drawable.ic_info,R.color.primary,v->{closeDrawer();showAbout();}));
+        content.addView(new View(this),new LinearLayout.LayoutParams(-1,Ui.dp(this,16)));
+
+        root.addView(drawerPanel,new FrameLayout.LayoutParams(w,-1));
+        drawerHiddenX=-w*1.15f;
+        drawerPanel.setTranslationX(drawerHiddenX);
+        updateDrawerPermission();
+    }
+
+    private TextView groupLabel(String s){
+        TextView t=new TextView(this);
+        t.setText(s);
+        t.setTextSize(12);
+        t.setTextColor(getColor(R.color.on_surface_variant));
+        t.setPadding(Ui.dp(this,20),Ui.dp(this,14),Ui.dp(this,20),Ui.dp(this,6));
+        return t;
+    }
+
+    private View drawerRow(String name,int iconRes,int tintRes,View.OnClickListener click){
+        View row=LayoutInflater.from(this).inflate(R.layout.item_storage,null,false);
+        ImageView icon=row.findViewById(R.id.ivStorageIcon);
+        icon.setImageResource(iconRes);
+        icon.setColorFilter(getColor(tintRes));
+        TextView text=row.findViewById(R.id.tvStorageName);
+        text.setText(name);
+        row.setOnClickListener(click);
+        TypedValue tv=new TypedValue();
+        row.getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground,tv,true);
+        row.setBackgroundResource(tv.resourceId);
+        return row;
+    }
+
+    private void toggleDrawer(){if(drawerOpen)closeDrawer();else openDrawer();}
+
+    private void openDrawer(){
+        updateDrawerPermission();
+        drawerOpen=true;
+        drawerScrim.setVisibility(View.VISIBLE);
+        drawerScrim.animate().alpha(1f).setDuration(200).start();
+        drawerPanel.animate().translationX(0f).setDuration(220).start();
+    }
+
+    private void closeDrawer(){
+        if(!drawerOpen)return;
+        drawerOpen=false;
+        drawerScrim.animate().alpha(0f).setDuration(200).withEndAction(()->drawerScrim.setVisibility(View.GONE)).start();
+        drawerPanel.animate().translationX(drawerHiddenX).setDuration(220).start();
+    }
+
+    private void updateDrawerPermission(){
+        if(drawerPermissionText==null)return;
+        boolean ok=hasFullAccess();
+        drawerPermissionText.setText(ok?"文件访问权限：已开启":"文件访问权限：未开启（点击去授权）");
+        drawerPermissionText.setTextColor(getColor(ok?R.color.on_surface:R.color.danger));
+        drawerPermissionIcon.setImageResource(ok?R.drawable.ic_check:R.drawable.ic_storage);
+        drawerPermissionIcon.setColorFilter(getColor(ok?R.color.primary:R.color.danger));
+    }
+
+    // —— 已安装应用（引擎 apps → 查看应用详情） ——
+    private void showAppsDialog(){
+        Toast.makeText(this,"正在读取应用列表…",Toast.LENGTH_SHORT).show();
+        worker.execute(()->{
+            final JSONArray[] holder={null};
+            final String[] error={null};
+            try{holder[0]=(JSONArray)engine.call("apps",new JSONObject());}
+            catch(Throwable e){error[0]=e.getMessage();}
+            runOnUiThread(()->{
+                JSONArray list=holder[0];
+                if(list==null){Toast.makeText(this,"读取应用列表失败："+error[0],Toast.LENGTH_LONG).show();return;}
+                int n=list.length();
+                if(n==0){Toast.makeText(this,"未找到任何应用",Toast.LENGTH_SHORT).show();return;}
+                String[] names=new String[n];
+                for(int i=0;i<n;i++){
+                    JSONObject app=list.optJSONObject(i);
+                    names[i]=app.optString("name")+(app.optBoolean("system")?"  [系统]":"")+"\n"+app.optString("package");
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle("已安装应用（"+n+"）")
+                        .setItems(names,(d,i)->{
+                            JSONObject app=list.optJSONObject(i);
+                            closeDrawer();
+                            startActivity(new Intent(this,ApkInfoActivity.class).putExtra("path",app.optString("path")));
+                        })
+                        .setNegativeButton("关闭",null).show();
+            });
+        });
+    }
+
+    // —— 回收站（引擎 recycleList / restore / purge） ——
+    private void showRecycleDialog(){
+        worker.execute(()->{
+            final JSONArray list;
+            try{list=(JSONArray)engine.call("recycleList",new JSONObject());}
+            catch(Throwable e){runOnUiThread(()->Toast.makeText(this,"读取回收站失败："+e.getMessage(),Toast.LENGTH_LONG).show());return;}
+            runOnUiThread(()->{
+                if(list==null||list.length()==0){Toast.makeText(this,"回收站为空",Toast.LENGTH_SHORT).show();return;}
+                int n=list.length();
+                String[] names=new String[n];
+                for(int i=0;i<n;i++){
+                    JSONObject it=list.optJSONObject(i);
+                    names[i]=it.optString("name")+"\n"+it.optString("path")+" · "+Ui.formatSize(it.optLong("size",0));
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle("回收站（"+n+"）· 点击项选择操作")
+                        .setItems(names,(d,i)->{
+                            final JSONObject it=list.optJSONObject(i);
+                            final String id=it.optString("id");
+                            new AlertDialog.Builder(this)
+                                    .setTitle(it.optString("name"))
+                                    .setMessage("原路径："+it.optString("path"))
+                                    .setPositiveButton("还原",(dd,ww)->worker.execute(()->{
+                                        String msg;
+                                        try{engine.call("restore",new JSONObject().put("id",id));msg="已还原 "+it.optString("name");}
+                                        catch(Throwable e){msg="还原失败："+e.getMessage();}
+                                        final String m=msg;runOnUiThread(()->Toast.makeText(this,m,Toast.LENGTH_LONG).show());
+                                    }))
+                                    .setNegativeButton("彻底删除",(dd,ww)->worker.execute(()->{
+                                        String msg;
+                                        try{engine.call("purge",new JSONObject().put("id",id));msg="已彻底删除 "+it.optString("name");}
+                                        catch(Throwable e){msg="删除失败："+e.getMessage();}
+                                        final String m=msg;runOnUiThread(()->Toast.makeText(this,m,Toast.LENGTH_LONG).show());
+                                    }))
+                                    .setNeutralButton("取消",null).show();
+                        })
+                        .setNegativeButton("关闭",null).show();
+            });
+        });
+    }
+
+    // —— FTP 传输（重启服务，共享当前目录） ——
+    private void startFtpShare(){
+        final String sharePath=active.path;
+        Toast.makeText(this,"正在启动 FTP 服务…",Toast.LENGTH_SHORT).show();
+        worker.execute(()->{
+            String msg;
+            try{
+                try{engine.call("service",new JSONObject().put("kind","remote").put("op","stop"));}catch(Throwable ignored){}
+                engine.call("service",new JSONObject().put("kind","remote").put("op","start")
+                        .put("path",sharePath).put("protocol","ftp").put("port",2121).put("code","chm"));
+                msg="FTP 服务已启动\n\n共享目录："+sharePath+"\n端口：2121\n配对码：chm\n\n在同一 Wi-Fi 下的电脑文件管理器中访问 ftp://<手机IP>:2121 即可传输文件。";
+            }catch(Throwable e){msg="FTP 启动失败："+e.getMessage();}
+            final String m=msg;
+            runOnUiThread(()->{
+                closeDrawer();
+                new AlertDialog.Builder(this).setTitle("FTP 传输").setMessage(m)
+                        .setPositiveButton("知道了",null).show();
+            });
+        });
     }
 
     private void checkPermissionIntro(){
-        worker.execute(()->{
-            boolean ok=false;
-            try{ok=((JSONObject)engine.call("init",new JSONObject())).optBoolean("permission",false);}catch(Throwable ignored){}
-            final boolean granted=ok;
-            runOnUiThread(()->{
-                if(granted)return;
-                new AlertDialog.Builder(this)
-                        .setTitle("授予文件访问权限")
-                        .setMessage("浏览手机文件需要「所有文件访问」权限。\n轻点「去授权」后打开开关并返回。")
-                        .setPositiveButton("去授权",(d,w)->storagePermission())
-                        .setNegativeButton("稍后",null)
-                        .show();
-            });
-        });
+        hadFullAccess=hasFullAccess();
+        if(hadFullAccess)return;
+        new AlertDialog.Builder(this)
+                .setTitle("授予文件访问权限")
+                .setMessage("浏览手机文件需要「所有文件访问」权限。\n\n轻点「去授权」→ 打开「允许管理所有文件」开关 → 返回应用，列表会自动刷新。\n\n注意：系统弹窗授权（照片/文件）不足以读取全部目录，这是 Android 11+ 的限制，旧版文件管理器不受影响是因它们使用了旧权限模式。")
+                .setPositiveButton("去授权",(d,w)->storagePermission())
+                .setNegativeButton("稍后",null)
+                .show();
+    }
+
+    /** 是否具备完整文件访问能力（Android 11+ 为「所有文件访问」，旧版为读写存储权限）。 */
+    private boolean hasFullAccess(){
+        if(Build.VERSION.SDK_INT>=30)return Environment.isExternalStorageManager();
+        if(Build.VERSION.SDK_INT>=23)return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
+        return true;
+    }
+
+    @Override protected void onResume(){
+        super.onResume();
+        // 从设置页授权返回时自动刷新列表（修复“授权后仍读不到目录”）
+        boolean now=hasFullAccess();
+        if(now&&!hadFullAccess){
+            Toast.makeText(this,"文件访问权限已生效",Toast.LENGTH_SHORT).show();
+            pane1.jump("/storage/emulated/0");
+            if(dualMode)pane2.jump("/storage/emulated/0");
+        }
+        hadFullAccess=now;
+        updateDrawerPermission();
     }
 
     private void storagePermission(){
@@ -559,7 +807,7 @@ public class MainActivity extends Activity implements PaneController.Host {
 
     @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] results){
         super.onRequestPermissionsResult(code,permissions,results);
-        pane1.jump("/storage/emulated/0");pane2.jump("/storage/emulated/0");
+        if(hasFullAccess()){pane1.jump("/storage/emulated/0");pane2.jump("/storage/emulated/0");}
     }
 
     // ———————— 终端（移植自旧版 WebView 壳） ————————
@@ -810,6 +1058,7 @@ public class MainActivity extends Activity implements PaneController.Host {
 
     // ———————— 返回键 ————————
     @Override public void onBackPressed(){
+        if(drawerOpen){closeDrawer();return;}
         if(terminalOverlay!=null){closeTerminal();return;}
         if(active.canGoBack()){active.goBack();return;}
         if(!active.path.equals("/storage/emulated/0")&&!active.path.equals("/")){active.goUp();return;}

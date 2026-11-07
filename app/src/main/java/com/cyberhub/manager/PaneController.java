@@ -61,18 +61,32 @@ public final class PaneController {
                 Activity a=(Activity)list.getContext();
                 a.runOnUiThread(()->{
                     loading=false;
-                    Toast.makeText(a,error.getMessage()==null?"无法读取此文件夹":error.getMessage(),Toast.LENGTH_LONG).show();
-                    host.onError(error.getMessage()==null?"无法读取此文件夹":error.getMessage());
+                    empty.setVisibility(android.view.View.VISIBLE);
+                    empty.setText("无法读取此文件夹\n点击重试");
+                    String msg=error.getMessage()==null?"无法读取此文件夹":error.getMessage();
+                    Toast.makeText(a,msg,Toast.LENGTH_LONG).show();
+                    host.onError(msg);
                 });
                 return;
             }
             sort(arr,host.sortMode(),host.sortAscending());
+            // 顶部插入“..”返回上一级条目（根目录除外），与 MP-Manager 行为一致
+            if(!p.equals("/")){
+                File parent=new File(p).getParentFile();
+                JSONObject up=new JSONObject();
+                try{
+                    up.put("name","..").put("path",parent==null?"/":parent.getPath())
+                      .put("dir",true).put("parentEntry",true);
+                }catch(Throwable ignored){}
+                arr=prepend(arr,up);
+            }
+            final JSONArray shown=arr;
             Activity a=(Activity)list.getContext();
             a.runOnUiThread(()->{
                 path=p;
-                adapter.setEntries(arr);
+                adapter.setEntries(shown);
                 adapter.clearSelection();
-                empty.setVisibility(arr.length()==0?android.view.View.VISIBLE:android.view.View.GONE);
+                empty.setVisibility(shown.length()==0?android.view.View.VISIBLE:android.view.View.GONE);
                 empty.setText("空文件夹");
                 loading=false;
                 host.onNavigated(this);
@@ -117,6 +131,14 @@ public final class PaneController {
         backStack.clear();
         forwardStack.clear();
         load(target);
+    }
+
+    /** 在列表头部插入一项（JSONArray 无 insert，重建）。 */
+    private static JSONArray prepend(JSONArray arr,JSONObject first){
+        JSONArray out=new JSONArray();
+        out.put(first);
+        for(int i=0;i<arr.length();i++)out.put(arr.opt(i));
+        return out;
     }
 
     static String normalize(String p){
